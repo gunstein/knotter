@@ -17,3 +17,12 @@ Cargo.lock
 # Added by cargo
 
 /target
+
+
+# For node, need for running mock_server.js
+node_modules
+build
+npm-debug.log
+.nyc
+.env
+.DS_Store
