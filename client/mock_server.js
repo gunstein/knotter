@@ -7,7 +7,8 @@ app.get('/api/resource', (req, res) => {
 });
 
 app.get('/api/test', (req, res) => {
-    res.json({ message: 'This is mock test data!' });
+    //res.json({ message: 'This is mock test data!' });
+    return res.status(204).end();
   });
 
 app.listen(port, () => {
