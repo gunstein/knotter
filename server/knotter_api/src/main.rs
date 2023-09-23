@@ -82,58 +82,40 @@ async fn healthcheck() -> impl Responder {
 }
 
 
-
-
-
 #[get("/{globe_id}/{transaction_id}")]
 async fn get_data(
     path: web::Path<(String, Uuid)>,
     session: web::Data<Arc<Session>>,
 ) -> Result<HttpResponse, MyError> {
-    let globe_id = &path.0;
-    let transaction_id = &path.1;
+    let (globe_id, transaction_id) = (&path.0, &path.1);
 
     let query = "SELECT transaction_id, operation_id, object_uuid, object_data FROM transactions WHERE globe_id = ? AND transaction_id = ?;";
     let values = (globe_id, transaction_id);
 
-
-    //return Err(MyError::ValidationError("Invalid input".to_string()));
     let mut results = session
         .query_iter(query, values)
         .await
         .map_err(|_| MyError::DatabaseError("Execution of query failed".to_string()))?;
 
-    let mut response_data = None;
-
-    while let Some(row_result) = results.next().await {
+    if let Some(row_result) = results.next().await {
         match row_result {
             Ok(row) => {
-                let transaction_id: Uuid = row.columns[0].as_ref().unwrap().as_uuid().unwrap();
-                let operation_id: i32 = row.columns[1].as_ref().unwrap().as_int().unwrap() as i32;
-                let object_uuid: Uuid = row.columns[2].as_ref().unwrap().as_uuid().unwrap();
-                let object_data: String = row.columns[3].as_ref().unwrap().as_text().unwrap().to_string();
+                let fetched_transaction_id = row.columns[0].as_ref().and_then(|col| col.as_uuid()).ok_or(MyError::InternalServerError("Invalid transaction_id".into()))?;
+                let operation_id = row.columns[1].as_ref().and_then(|col| col.as_int()).ok_or(MyError::InternalServerError("Invalid operation_id".into()))? as i32;
+                let object_uuid = row.columns[2].as_ref().and_then(|col| col.as_uuid()).ok_or(MyError::InternalServerError("Invalid object_uuid".into()))?;
+                let object_data = row.columns[3].as_ref().and_then(|col| col.as_text()).ok_or(MyError::InternalServerError("Invalid object_data".into()))?.to_string();
 
-                response_data = Some((
-                    transaction_id,
-                    operation_id,
-                    object_uuid,
-                    object_data,
-                ));
+                Ok(HttpResponse::Ok().json(format!(
+                    "Globe ID: {}, Transaction ID: {}, Operation ID: {}, Object UUID: {}, Object Data: {}",
+                    globe_id, fetched_transaction_id, operation_id, object_uuid, object_data
+                )))
             },
-            Err(err) => return Err(MyError::DatabaseError("Fetching of data failed: ".to_string() + err.to_string().as_str())),
+            Err(err) => Err(MyError::DatabaseError(format!("Fetching of data failed: {}", err))),
         }
-    }
-
-    match response_data {
-        Some((transaction_id, operation_id, object_uuid, object_data)) => Ok(HttpResponse::Ok().json(
-            format!("Globe ID: {}, Transaction ID: {}, Operation ID: {}, Object UUID: {}, Object Data: {}",
-                globe_id, transaction_id, operation_id, object_uuid, object_data
-            )
-        )),
-        None => Err(MyError::InternalServerError("response_data is None.".to_string())),
+    } else {
+        Err(MyError::InternalServerError("No data found for given globe_id and transaction_id.".to_string()))
     }
 }
-
 
 // Define a structure to represent the data for clarity
 #[derive(Serialize)]
@@ -177,48 +159,7 @@ async fn get_data_by_globe_id(
 
     Ok(HttpResponse::Ok().json(response_data))
 }
-/* 
-#[get("/{globe_id}")]
-async fn get_data_by_globe_id(
-    globe_id: web::Path<String>,
-    session: web::Data<Arc<Session>>,
-) -> Result<HttpResponse, MyError> {
 
-    // Query to select all columns based on globe_id
-    let query = "SELECT transaction_id, operation_id, object_uuid, object_data FROM mykeyspace.transactions WHERE globe_id = ?;";
-    let values = (globe_id.to_string(),);
-
-    let mut results = session
-        .query_iter(query, values)
-        .await
-        .map_err(|err| MyError::DatabaseError("Execution of query failed: ".to_string() + &err.to_string().as_str()))?;
-
-    let mut response_data = Vec::new();
-
-    while let Some(row_result) = results.next().await {
-        match row_result {
-            Ok(row) => {
-                let transaction_id: Uuid = row.columns[0].as_ref().unwrap().as_uuid().unwrap();
-                let operation_id: i32 = row.columns[1].as_ref().unwrap().as_int().unwrap() as i32;
-                let object_uuid: Uuid = row.columns[2].as_ref().unwrap().as_uuid().unwrap();
-                let object_data: String = row.columns[3].as_ref().unwrap().as_text().unwrap().to_string();
-
-                // Storing fetched data in a tuple and pushing it into response_data vector
-                response_data.push((
-                    transaction_id,
-                    operation_id,
-                    object_uuid,
-                    object_data,
-                ));
-            },
-            Err(err) => return Err(MyError::DatabaseError("Fetching of data failed: ".to_string() + err.to_string().as_str())),
-        }
-    }
-
-    // Return as JSON
-    Ok(HttpResponse::Ok().json(response_data))
-}
-*/
 #[derive(Deserialize)]
 struct TransactionDataIncoming {
     operation_id: i32,
