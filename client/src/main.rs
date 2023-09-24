@@ -38,7 +38,7 @@ fn main() {
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugins(GlobePlugin)
         .add_plugins(BallPlugin)
-        .add_plugins(QueryServerPlugin)
+        //.add_plugins(QueryServerPlugin)
         //.add_plugin(RapierDebugRenderPlugin::default())
         .add_systems(Startup, setup_graphics)
         .add_systems(Startup, setup_physics)

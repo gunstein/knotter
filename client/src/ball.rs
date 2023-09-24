@@ -1,5 +1,7 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, window::CursorGrabMode};
 use bevy_rapier3d::prelude::*;
+use smooth_bevy_cameras::controllers::orbit::OrbitCameraController;
+use smooth_bevy_cameras::LookTransform;
 use rand::Rng;
 use super::globe;
 
@@ -7,10 +9,14 @@ pub struct BallPlugin;
 
 impl Plugin for BallPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, spawn_static_balls)
-            .add_systems(Startup, spawn_moving_balls)
+        app
+            //.add_systems(Startup, spawn_static_balls)
+            .add_systems(Startup, init_ball_resources)
+            //.add_systems(Startup, spawn_moving_balls)
             .add_systems(Update, push_ball_against_globe)
             .add_systems(Update, handle_ball_collision)
+            .add_systems(Update, spawn_ball_on_globe)
+            .insert_resource(BallRadius(0.05))
             .register_type::<Ball>();
     }
 }
@@ -25,6 +31,38 @@ struct Speed(f32);
 #[derive(Component)]
 pub struct Static;
 
+#[derive(Resource)]
+struct HandleForBallMesh {
+    handle: Handle<Mesh>,
+}
+
+#[derive(Resource)]
+struct HandleForBallMaterial {
+    handle: Handle<StandardMaterial>,
+}
+
+#[derive(Resource)]
+pub struct BallRadius(pub f32);
+
+//add mesh and material for ball and add to resource
+fn init_ball_resources(mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    ball_radius: Res<BallRadius>) {
+
+    let ball_mesh_handle: Handle<Mesh> = meshes.add(Mesh::from(shape::UVSphere {
+        radius: ball_radius.0,
+        ..default()
+    }));
+
+    commands.insert_resource(HandleForBallMesh { handle: ball_mesh_handle });     
+
+    let ball_material_handle = materials.add(Color::BLUE.into());
+    commands.insert_resource(HandleForBallMaterial { handle: ball_material_handle });
+    
+}
+
+/* 
 fn spawn_static_balls(mut commands: Commands, 
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -64,8 +102,34 @@ fn spawn_static_balls(mut commands: Commands,
         ));        
     }        
 }
+*/
+fn spawn_static_ball(commands: &mut Commands, 
+    ball_mesh_resource: &Res<HandleForBallMesh>,
+    ball_material_resource: &Res<HandleForBallMaterial>,
+    ball_radius: &Res<BallRadius>,
+    point_on_sphere: (f32, f32, f32)) {
+
+    //ball
+    commands.spawn(
+        PbrBundle {
+            mesh: ball_mesh_resource.handle.clone(),
+            material: ball_material_resource.handle.clone(),
+            ..default()
+        }
+        )
+    .insert((
+        //TransformBundle::from(Transform::from_xyz([-1.0, 1.0][rng.gen_range(0..2)] *rng.gen_range(1.0..2.0), [-1.0, 1.0][rng.gen_range(0..2)] * rng.gen_range(1.0..2.0), [-1.0, 1.0][rng.gen_range(0..2)] * rng.gen_range(1.0..2.0))),
+        TransformBundle::from(Transform::from_xyz(point_on_sphere.0, point_on_sphere.1, point_on_sphere.2)),
+        Collider::ball(ball_radius.0),
+        Friction::coefficient(0.0),
+        Restitution::coefficient(1.0),
+        RigidBody::Fixed,
+        Static
+    ));              
+}
 
 
+/* 
 fn spawn_moving_balls(mut commands: Commands, 
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -130,6 +194,8 @@ fn spawn_moving_balls(mut commands: Commands,
     }
         
 }
+*/
+
 
 fn push_ball_against_globe(
     mut query_balls: Query<(&mut ExternalForce, &Transform, &ReadMassProperties), With<Ball>>,
@@ -201,56 +267,66 @@ fn random_point_on_sphere(r: f32) -> (f32, f32, f32) {
 }
 
 
-/* 
 //-Raycast mot sentrum av globen.
 //-Hvis treffer globe (og ikke annen ball) så spawn ny ball i raycast-treff-punkt + radius ut i retning fra globe-senter.
 // Må få mouse-koordinater
 fn spawn_ball_on_globe(
-    mut query_globe: Query<(Entity), With<Globe>>,
-    mut query_balls: Query<(&mut ExternalForce, &mut Velocity, &Transform, &Collider), With<Ball>>,
-    cameras: Query<(&OrbitCameraController, &LookTransform, &Transform, &Camera, &GlobalTransform)>,
+    mut commands: Commands,
+    ball_mesh_resource: Res<HandleForBallMesh>,
+    ball_material_resource: Res<HandleForBallMaterial>,
+    ball_radius: Res<BallRadius>,
+    //query_globe: Query<(Entity), With<globe::Globe>>,
+    //mut query_balls: Query<(&mut ExternalForce, &mut Velocity, &Transform, &Collider), With<Ball>>,
+    //cameras: Query<(&OrbitCameraController, &LookTransform, &Transform, &Camera, &GlobalTransform)>,
+    cameras: Query<(&Camera, &GlobalTransform)>,
     rapier_context: Res<RapierContext>,
     mouse: Res<Input<MouseButton>>,
-    windows: Res<Windows>,
+    windows: Query<&mut Window>,
 ) {
     if !mouse.just_pressed(MouseButton::Left) {
         return
     }
     
-    let window = windows.get_primary().unwrap();
-    let mouse_pos;
-    if let Some(_position) = window.cursor_position() {
-        // cursor is inside the window, position given
-        mouse_pos = _position;
-    } else {
-        // cursor is not inside the window
-        return
+    println!("Left button pushed");
+
+    let window = windows.single();
+
+    let Some(cursor_position) = window.cursor_position() else { return; };
+
+    for (camera, camera_transform) in &cameras {
+        // First, compute a ray from the mouse position.
+        let Some(ray) = camera.viewport_to_world(camera_transform, cursor_position) else { return; };
+
+        // Then cast the ray.
+        let hit = rapier_context.cast_ray(
+            ray.origin,
+            ray.direction,
+            f32::MAX,
+            true,
+            QueryFilter::only_fixed(),
+        );
+
+        
+        if let Some((entity, toi)) = hit {
+            let hit_point = ray.origin + ray.direction * toi;
+            println!("hit_point: {:?}", hit_point);
+            let offset_point = hit_point - ray.direction.normalize() * (ball_radius.0).clone();
+            println!("offset_point: {:?}", offset_point);
+            println!("ball_radius: {:?}", ball_radius.0);
+
+            spawn_static_ball(&mut commands, 
+                &ball_mesh_resource,
+                &ball_material_resource,
+                &ball_radius,
+                (offset_point.x, offset_point.y, offset_point.z)
+                //(hit_point.x, hit_point.y, hit_point.z)
+            );
+        }        
     }
 
-    let (mut transform, scene_transform, camera, global_transform) =
-        if let Some((_, transform, scene_transform, camera, global_transform)) = cameras.iter_mut().find(|c| c.0.enabled) {
-            (transform, scene_transform, camera, global_transform)
-        } else {
-            return;
-        };
-    
-    //let ray_pos = Vec3::new(1.0, 2.0, 3.0);
-    let ray_pos = transform.eye;
-    //let ray_dir = Vec3::new(0.0, 1.0, 0.0);
-    let ray_dir = camera.viewport_to_world(global_transform, mouse_pos).unwrap();
-    let max_toi = 4.0;
-    let solid = true;
-    //let filter = None;
+    println!("Finished");
 
-    if let Some((entity, toi)) = rapier_context.cast_ray(
-        ray_pos, ray_dir.direction, max_toi, solid, QueryFilter::default()
-    ) {
-        // The first collider hit has the entity `entity` and it hit after
-        // the ray travelled a distance equal to `ray_dir * toi`.
-        let hit_point = ray_pos + ray_dir * toi;
-        println!("Entity {:?} hit at point {}", entity, hit_point);
-    }
-
+    /* 
     for (mut ball_force, _ball_velocity, ball_transform, ball_collider) in query_balls.iter_mut() {
         let ray_pos = Vec3::new(1.0, 2.0, 3.0);//camera
         let ray_dir = Vec3::new(0.0, 1.0, 0.0);//Unitvector from camera to mouse/touch
@@ -282,5 +358,6 @@ fn spawn_ball_on_globe(
             }
         }
     }
+    */
 }
-*/
+
