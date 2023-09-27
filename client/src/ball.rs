@@ -1,7 +1,7 @@
 use bevy::{prelude::*, window::CursorGrabMode};
 use bevy_rapier3d::prelude::*;
-use smooth_bevy_cameras::controllers::orbit::OrbitCameraController;
-use smooth_bevy_cameras::LookTransform;
+//use smooth_bevy_cameras::controllers::orbit::OrbitCameraController;
+//use smooth_bevy_cameras::LookTransform;
 use rand::Rng;
 use super::globe;
 
