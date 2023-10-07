@@ -4,8 +4,6 @@ use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 use bevy::input::mouse::{MouseButtonInput, MouseMotion};
 
-//use bevy_mod_picking::prelude::*;
-
 use globe::GlobePlugin;
 use ball::BallPlugin;
 use orbit_camera_controller::OrbitCameraControllerPlugin;
@@ -25,22 +23,31 @@ fn main() {
             0xF9 as f32 / 255.0,
             0xFF as f32 / 255.0,
         )))
+        .add_state::<AppState>()
         //.insert_resource(WinitSettings::desktop_app())
         .add_plugins(DefaultPlugins)
         .add_plugins(WorldInspectorPlugin::new())
+        //.add_plugins(DefaultPickingPlugins)
         //.add_plugins(LookTransformPlugin)
         //.add_plugins(OrbitCameraPlugin::default())
-        // Mod Picking
-        //.add_plugins(DefaultPickingPlugins)
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugins(GlobePlugin)
         .add_plugins(BallPlugin)
         .add_plugins(OrbitCameraControllerPlugin)
+        //.add_plugins(UiPlugin)
         //.add_plugins(QueryServerPlugin)
-        //.add_plugin(RapierDebugRenderPlugin::default())
+        //.add_plugins(RapierDebugRenderPlugin::default())
         .add_systems(Startup, setup_graphics)
         .add_systems(Startup, setup_physics)
         .run();
+}
+
+
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
+enum AppState {
+    #[default]
+    Upsert,
+    UpsertSetSpeed,
 }
 
 fn setup_graphics(mut commands: Commands) {
@@ -69,11 +76,13 @@ fn setup_graphics(mut commands: Commands) {
         brightness: 0.02,
     });
 
-    commands.spawn(Camera3dBundle {
-        //transform: Transform::from_xyz(0.0, 6.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
-        transform: Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3dBundle {
+            //transform: Transform::from_xyz(0.0, 6.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+            transform: Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        },
+    ));
 }
 
 pub fn setup_physics(

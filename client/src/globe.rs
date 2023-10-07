@@ -46,6 +46,10 @@ fn spawn_globe(mut commands: Commands,
         },
         Collider::ball(globe_radius.0),
         Friction::coefficient(0.0),
+        CollisionGroups {
+            memberships: Group::GROUP_1,
+            filters: (Group::GROUP_2),
+        },
         Globe
         )
     );
