@@ -41,6 +41,12 @@ pub struct MovingBall;
 pub struct Upserted;
 
 #[derive(Component)]
+pub struct CapsuleDepth(f32);
+
+#[derive(Component)]
+pub struct CapsuleRotation(Quat);
+
+#[derive(Component)]
 pub struct SpeedMarker;
 
 #[derive(Resource)]
@@ -56,11 +62,6 @@ struct HandleForBallMaterial {
 #[derive(Resource)]
 pub struct BallRadius(pub f32);
 
-#[derive(Component)]
-struct CapsuleDepth(f32);
-
-#[derive(Component)]
-struct CapsuleRotation(Quat);
 
 //add mesh and material for ball and add to resource
 fn init_ball_resources(mut commands: Commands,
@@ -363,6 +364,7 @@ fn upsert_ball_on_globe(
     mouse: Res<Input<MouseButton>>,
     windows: Query<&mut Window>,
     query_globe: Query<Entity, With<globe::Globe>>,
+    mut next_state: ResMut<NextState<AppState>>,
 ) {
     if !mouse.just_pressed(MouseButton::Left) {
         return
@@ -404,61 +406,13 @@ fn upsert_ball_on_globe(
             // The first collider hit has the entity `entity`. The `hit` is a
             // structure containing details about the hit configuration.
             println!("Hit the entity {:?} with the configuration: {:?}", entity, hit);
-        }        
-        /* 
-        if let Some((entity, toi)) = hit {
-            let hit_point = ray.origin + ray.direction * toi;
-            println!("hit_point: {:?}", hit_point);
-            let offset_point = hit_point - ray.direction.normalize() * (ball_radius.0).clone();
-            println!("offset_point: {:?}", offset_point);
-            println!("ball_radius: {:?}", ball_radius.0);
-
-            spawn_static_ball(&mut commands, 
-                &ball_mesh_resource,
-                &ball_material_resource,
-                &ball_radius,
-                (offset_point.x, offset_point.y, offset_point.z)
-                //(hit_point.x, hit_point.y, hit_point.z)
-            );
-        } 
-        */       
+        }            
     }
 
     println!("Finished");
 
-    /* 
-    for (mut ball_force, _ball_velocity, ball_transform, ball_collider) in query_balls.iter_mut() {
-        let ray_pos = Vec3::new(1.0, 2.0, 3.0);//camera
-        let ray_dir = Vec3::new(0.0, 1.0, 0.0);//Unitvector from camera to mouse/touch
-        let max_toi = 100.0;
-        let cast_velocity = Vec3::new(0.0, 0.0, -1.0);
-        let filter = QueryFilter {
-            groups: Some(
-                CollisionGroups {
-                    memberships: Group::GROUP_3,
-                    filters: Group::GROUP_1,
-                }
-                .into(),
-            ),
-            ..default()
-        };
+    next_state.set(AppState::UpsertSetSpeed);
 
-        if let Some((_entity, hit)) = rapier_context.cast_shape(
-            ball_transform.translation,
-            ball_transform.rotation,
-            cast_velocity,
-            ball_collider,
-            max_toi,
-            filter,
-        ) {
-            if hit.toi > 0.0 {
-                ball_force.force = Vec3::new(0.0, 0.0, -0.0001);
-            } else {
-                ball_force.force = Vec3::new(0.0, 0.0, 0.0);
-            }
-        }
-    }
-    */
 }
 
 //Use mouse to set speed and direction of ball
@@ -475,6 +429,8 @@ fn upsert_set_speed(
     mut query_upsert_ball: Query<(Entity, &Transform, &Handle<StandardMaterial>), With<ball::Upserted>>,
     query_speed_marker: Query<(Entity, &CapsuleDepth, &CapsuleRotation), With<SpeedMarker>>,
     mut next_state: ResMut<NextState<AppState>>,
+    ball_mesh_resource: Res<HandleForBallMesh>,
+    ball_material_resource: Res<HandleForBallMaterial>,
 ){  
     let window = windows.single();
     let Some(cursor_position) = window.cursor_position() else { return; };
@@ -483,21 +439,28 @@ fn upsert_set_speed(
     //Do raycast to check pointer is on globe
     for (camera, camera_transform) in &cameras {
         //Find ball marked for upsert
-        let mut upsert_ball = query_upsert_ball.single_mut();
+        println!("gvtest1");
+        let upsert_ball = if let Ok(result) = query_upsert_ball.get_single_mut() {
+            result
+        } else {
+            return;
+        };
+        
 
+        println!("gvtest2");
         // First, compute a ray from the mouse position.
         let Some(ray) = camera.viewport_to_world(camera_transform, cursor_position) else { return; };
         //Only hit globe, globe is only member of CollisionGroup GROUP_1
         let filter = QueryFilter {
             groups: Some(
                 CollisionGroups {
-                    memberships: Group::GROUP_1,
+                    memberships: Group::GROUP_2,
                     filters: Group::GROUP_1,
                 }
             ),
             ..default()
         };
-
+        println!("gvtest3");
         // Then cast the ray. Maybe cast_ray_and_get_normal, if I need the hit point normal.
         if let Some((entity, toi)) = rapier_context.cast_ray(
             ray.origin,
@@ -506,32 +469,40 @@ fn upsert_set_speed(
             true,
             filter,
         ){
+            println!("gvtest mouse on globe");
             //if left mousebutton is pressed, then make entity dynamic  and set speed, set next state to upsert
             //if speed length is close to zero, spawn static ball
             if mouse.just_pressed(MouseButton::Left) {
+                println!("gvtest left mouse button");
                 //Keep material and position
                 let ball_position = upsert_ball.1.translation;
                 let ball_material = upsert_ball.2;
 
                 //despawn speed marker
-                let (entity, capsule_depth, capsule_rotation) = query_speed_marker.single();
-                commands.entity(entity).despawn();
+                let (speed_marker, capsule_depth, capsule_rotation) = query_speed_marker.single();
+                commands.entity(speed_marker).despawn();
                 
-                //despawn upsert ball
-                commands.entity(upsert_ball.0).despawn();
-
-               
                 if capsule_depth.0 > 0.1{
                     //spawn dynamic
+                    //despawn upsert ball
+                    commands.entity(upsert_ball.0).despawn();
+
                      //compute impulse
-                     let forward_direction = capsule_rotation.0.mul_vec3(Vec3::Z).normalize();
-                     let impulse_magnitude = capsule_depth.0; //Should scale?
-                     let impulse = forward_direction * impulse_magnitude;
+                     let forward_direction = capsule_rotation.0.mul_vec3(Vec3::Y).normalize();
+                     //let impulse_magnitude = capsule_depth.0; //Should scale?
+                     //let impulse = forward_direction * impulse_magnitude;
+                     let impulse = forward_direction * 0.0001;
 
-
+                     spawn_moving_ball(&mut commands, 
+                        &ball_mesh_resource,
+                        &ball_material_resource,
+                        &ball_radius,
+                        (ball_position.x, ball_position.y, ball_position.z),
+                        impulse );
                 }
                 else{
-                    //spawn static
+                    //Remove Upsert component on ball. The ball is then permanent static.
+                    commands.entity(upsert_ball.0).remove::<Upserted>();
                 }
 
                 //nextstate = upsert
@@ -539,23 +510,33 @@ fn upsert_set_speed(
             }
             else{
                 //else draw pipe
+                println!("gvtest no button pressed");
                 //despawn previous pipe speed marker if it exists
-                if let Ok((entity, _, _) ) = query_speed_marker.get_single() {
-                    commands.entity(entity).despawn();
+                if let Ok((entity, _, _))  = query_speed_marker.get_single(){
+                  commands.entity(entity).despawn();
+                  println!("Despawn query_speed_marker.");
                 }
+
+                println!("gvtest x");
+
                 // Starting and ending points of your line
                 let start = upsert_ball.1.translation;
                 let end = ray.origin + ray.direction * toi;
+
+                let normal_start = start.normalize();
+                let normal_end = end.normalize();
+                let average_normal = (normal_start + normal_end).normalize();
                 
                 // Compute the middle point of the line segment
                 let middle = (start + end) / 2.0;
+                let shifted_middle = middle + average_normal * 0.1;
                 
                 // Compute the length and orientation of the line segment
                 let length = start.distance(end);
-                let orientation = (end - start).normalize();
+                let orientation = (end - start).normalize();                
 
                 // Convert direction to a rotation Quat
-                let forward = Vec3::Z; // Using Z as the default forward direction (you can adjust as needed)
+                let forward = Vec3::Y; 
                 let rotation = Quat::from_rotation_arc(forward, orientation);
 
                 let capsule_depth = length - 0.05 * 2.0;
@@ -567,21 +548,32 @@ fn upsert_set_speed(
                     })),
                     material: materials.add(Color::rgb(0.7, 0.7, 0.7).into()),
                     transform: Transform {
-                        translation: middle,
+                        translation: shifted_middle,
                         rotation: rotation,
                         ..Default::default()
                     },
                     ..Default::default()
                 })
-                .insert({CapsuleDepth(capsule_depth); CapsuleRotation(rotation)});
+                .insert(CapsuleDepth(capsule_depth))
+                .insert(CapsuleRotation(rotation))
+                .insert(SpeedMarker);
             }
         } 
         else {
+            println!("gvtest mouse not on globe");
+
+            //despawn speed marker
+            if let Ok((entity, _, _))  = query_speed_marker.get_single(){
+                commands.entity(entity).despawn();
+                println!("Despawn query_speed_marker.");
+            }
             //if left mousebutton clicked then despawn pipe and set next state to Upsert (user clicked outside globe)
+            //Remove upserted component so ball will be a premanent static ball
             if mouse.just_pressed(MouseButton::Left) {
-                //Keep mesh, material and position
-                //despawn pipe
+                commands.entity(upsert_ball.0).remove::<Upserted>();
+
                 //nextstate = upsert
+                next_state.set(AppState::Upsert);
             }
         }       
     }
