@@ -58,6 +58,15 @@ curl -X POST \
          }' \
      http://127.0.0.1:8080/sample-globe-id
 
-     curl http://127.0.0.1:8080/sample-globe-id
+
+curl -X POST \
+     -H "Content-Type: application/json" \
+     -d '{
+           "object_data": "Sample Data"
+         }' \
+     http://127.0.0.1:8080/globe1
+
+
+     curl http://127.0.0.1:8080/globe1
 
      curl http://127.0.0.1:8080/health
