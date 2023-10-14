@@ -7,8 +7,7 @@ edition = "2021"
 
 [dependencies]
 actix-web = "4"
-scylla = "0.9"
 serde = { version = "1.0", features = ["derive"] }
 uuid = { version = "1.4", features = ["v1", "serde"] }
 chrono ="0.4"
-futures = "0.3"
+redb = "1.2.0"

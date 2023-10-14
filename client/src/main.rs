@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
+//use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 use bevy::input::mouse::{MouseButtonInput, MouseMotion};
 
@@ -35,7 +35,7 @@ fn main() {
         .add_plugins(BallPlugin)
         .add_plugins(OrbitCameraControllerPlugin)
         //.add_plugins(UiPlugin)
-        //.add_plugins(QueryServerPlugin)
+        .add_plugins(QueryServerPlugin)
         //.add_plugins(RapierDebugRenderPlugin::default())
         .add_systems(Startup, setup_graphics)
         .add_systems(Startup, setup_physics)

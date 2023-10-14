@@ -1,14 +1,11 @@
-use actix_web::{web, App, HttpResponse, HttpServer, Result, ResponseError, Responder, get, post, Error};
-use scylla::{Session, SessionBuilder};
+use actix_web::{web, App, HttpResponse, HttpServer, Result, ResponseError, Responder, get, post};
 use std::sync::Arc;
-use uuid::Uuid;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use scylla::IntoTypedRows;
-use futures::StreamExt;
-use chrono::{Utc, Local, DateTime};
+use chrono::{Utc};
+use redb::{Database, ReadableTable, TableDefinition};
 
-
+const TABLE: TableDefinition<&str, &str> = TableDefinition::new("knotter_log");
 
 #[derive(Debug)]
 enum MyError {
@@ -19,18 +16,30 @@ enum MyError {
     // ... other errors
 }
 
-/* 
-#[derive(Debug)]
-pub enum CustomError {
-    InternalServerError,
-}
-
-impl fmt::Display for CustomError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "CustomError")
+impl From<redb::TransactionError> for MyError {
+    fn from(err: redb::TransactionError) -> Self {
+        MyError::DatabaseError(err.to_string())
     }
 }
-*/
+
+impl From<redb::TableError> for MyError {
+    fn from(err: redb::TableError) -> Self {
+        MyError::DatabaseError(err.to_string())
+    }
+}
+
+impl From<redb::StorageError> for MyError {
+    fn from(err: redb::StorageError) -> Self {
+        MyError::DatabaseError(err.to_string())
+    }
+}
+
+impl From<redb::CommitError> for MyError {
+    fn from(err: redb::CommitError) -> Self {
+        MyError::DatabaseError(err.to_string())
+    }
+}
+
 
 impl fmt::Display for MyError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -56,18 +65,6 @@ impl ResponseError for MyError {
     }
 }
 
-/* 
-impl ResponseError for CustomError {
-    fn error_response(&self) -> HttpResponse {
-        match *self {
-            CustomError::InternalServerError => {
-                HttpResponse::InternalServerError().json("Internal Server Error")
-            },
-        }
-    }
-}
-*/
-
 #[derive(Serialize)]
 pub struct Response {
     pub message: String,
@@ -82,78 +79,59 @@ async fn healthcheck() -> impl Responder {
 }
 
 
-#[get("/{globe_id}/{transaction_id}")]
-async fn get_data(
-    path: web::Path<(String, Uuid)>,
-    session: web::Data<Arc<Session>>,
-) -> Result<HttpResponse, MyError> {
-    let (globe_id, transaction_id) = (&path.0, &path.1);
-
-    let query = "SELECT transaction_id, operation_id, object_uuid, object_data FROM transactions WHERE globe_id = ? AND transaction_id = ?;";
-    let values = (globe_id, transaction_id);
-
-    let mut results = session
-        .query_iter(query, values)
-        .await
-        .map_err(|_| MyError::DatabaseError("Execution of query failed".to_string()))?;
-
-    if let Some(row_result) = results.next().await {
-        match row_result {
-            Ok(row) => {
-                let fetched_transaction_id = row.columns[0].as_ref().and_then(|col| col.as_uuid()).ok_or(MyError::InternalServerError("Invalid transaction_id".into()))?;
-                let operation_id = row.columns[1].as_ref().and_then(|col| col.as_int()).ok_or(MyError::InternalServerError("Invalid operation_id".into()))? as i32;
-                let object_uuid = row.columns[2].as_ref().and_then(|col| col.as_uuid()).ok_or(MyError::InternalServerError("Invalid object_uuid".into()))?;
-                let object_data = row.columns[3].as_ref().and_then(|col| col.as_text()).ok_or(MyError::InternalServerError("Invalid object_data".into()))?.to_string();
-
-                Ok(HttpResponse::Ok().json(format!(
-                    "Globe ID: {}, Transaction ID: {}, Operation ID: {}, Object UUID: {}, Object Data: {}",
-                    globe_id, fetched_transaction_id, operation_id, object_uuid, object_data
-                )))
-            },
-            Err(err) => Err(MyError::DatabaseError(format!("Fetching of data failed: {}", err))),
-        }
-    } else {
-        Err(MyError::InternalServerError("No data found for given globe_id and transaction_id.".to_string()))
-    }
-}
-
 // Define a structure to represent the data for clarity
 #[derive(Serialize)]
 struct TransactionDataOut {
-    transaction_id: Uuid,
-    operation_id: i32,
-    object_uuid: Uuid,
+    transaction_id: String,
     object_data: String,
 }
 
-#[get("/{globe_id}")]
+fn get_after_dashdash(s: &str) -> Option<&str> {
+    let mut parts = s.split("--");
+    parts.next()?;  // consume everything before "--"
+    parts.next()    // get everything after "--"
+}
+
+#[get("/{globe_id}/{transaction_id}")]
 async fn get_data_by_globe_id(
-    globe_id: web::Path<String>,
-    session: web::Data<Arc<Session>>,
+    path_info: web::Path<(String, String)>,
+    db: web::Data<Arc<Database>>,
 ) -> Result<HttpResponse, MyError> {
+    let globe_id = &path_info.0;
+    let transaction_id = &path_info.1;
 
-    let query = "SELECT transaction_id, operation_id, object_uuid, object_data FROM mykeyspace.transactions WHERE globe_id = ?;";
-    let values = (globe_id.to_string(),);
+    let read_txn = db.begin_read()?;
+    let table = read_txn.open_table(TABLE)?;
 
-    let mut results = session
-        .query_iter(query, values)
-        .await
-        .map_err(|err| MyError::DatabaseError(format!("Execution of query failed: {}", err)))?;
+    let mut iter = {
+        let start = if transaction_id == "0" {
+            format!("{}--", globe_id)
+        } else {
+            format!("{}--{}", globe_id, transaction_id)
+        };
+
+        let end = format!("{}--{}", globe_id, "\u{10ffff}");
+        table.range::<&str>(start.as_str()..end.as_str()).unwrap()
+    };
+
+    if transaction_id != "0" {
+        // Skip the first item
+        iter.next();
+    }
 
     let mut response_data = Vec::new();
-
-    while let Some(row_result) = results.next().await {
-        match row_result {
-            Ok(row) => {
+    for item in iter {
+        match item {
+            Ok((key, value)) => {
                 let transaction_data = TransactionDataOut {
-                    transaction_id: row.columns[0].as_ref().and_then(|col| col.as_uuid()).ok_or(MyError::InternalServerError("Invalid transaction_id".into()))?,
-                    operation_id: row.columns[1].as_ref().and_then(|col| col.as_int()).ok_or(MyError::InternalServerError("Invalid operation_id".into()))? as i32,
-                    object_uuid: row.columns[2].as_ref().and_then(|col| col.as_uuid()).ok_or(MyError::InternalServerError("Invalid object_uuid".into()))?,
-                    object_data: row.columns[3].as_ref().and_then(|col| col.as_text()).ok_or(MyError::InternalServerError("Invalid object_data".into()))?.to_string(),
+                    transaction_id: get_after_dashdash(key.value()).unwrap().to_string(),
+                    object_data: value.value().to_string(),
                 };
                 response_data.push(transaction_data);
             },
-            Err(err) => return Err(MyError::DatabaseError(format!("Fetching of data failed: {}", err))),
+            Err(err) => {
+                return Err(MyError::DatabaseError(format!("Fetching of data failed: {}", err)))
+            }
         }
     }
 
@@ -162,68 +140,43 @@ async fn get_data_by_globe_id(
 
 #[derive(Deserialize)]
 struct TransactionDataIncoming {
-    operation_id: i32,
-    object_uuid: Uuid,
     object_data: String,
 }
 
 #[post("/{globe_id}")]
 async fn set_data(
     globe_id: web::Path<String>,
-    session: web::Data<Arc<Session>>,
+    db: web::Data<Arc<Database>>,
     data: web::Json<TransactionDataIncoming>,
 ) -> Result<String, MyError> {
-//) -> HttpResponse {
-    //println!("START");
-    // MAC address for demonstration; replace with your own or another method to get a node ID.
-    let node_id: [u8; 6] = [0x01, 0x23, 0x45, 0x67, 0x89, 0xAB];
+    //Must validate first
 
-    let new_transaction_id = Uuid::now_v1(&node_id);
-    //println!("GV1");
-    let query = "INSERT INTO mykeyspace.transactions(globe_id, transaction_id, operation_id, object_uuid, object_data) VALUES (?, ?, ?, ?, ?)";
-    let values = (globe_id.to_string(), new_transaction_id, data.operation_id, data.object_uuid, data.object_data.clone());
-    //println!("GV2");
-    match session.query(query, values).await {
-        Ok(_) => Ok(format!("Successfully inserted: Globe ID: {}, New Transaction ID: {}", globe_id, new_transaction_id)),
-        //Ok(todo) => HttpResponse::Ok().json(query),
-        //Err(_) => Err(CustomError::InternalServerError),
-        Err(err) => Err(MyError::DatabaseError("Insert failed: ".to_string() + &err.to_string().as_str())),
-        //Err(err) => CustomError::InternalServerError().body(err.to_string()),
-        //Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+    let now = Utc::now();
+    let nanoseconds_since_epoch = (now.timestamp_subsec_nanos() as i64 + now.timestamp() * 1_000_000_000).to_string();
+    let key = format!("{}--{}", globe_id, nanoseconds_since_epoch);
+
+    let write_txn = db.begin_write()?;
+    {
+        let mut table = write_txn.open_table(TABLE)?;
+        table.insert(&key.as_str(), &data.object_data.as_str())?;
     }
+    write_txn.commit()?;
+
+    Ok(format!("Successfully inserted: Globe ID: {}, New Transaction ID: {}", globe_id, nanoseconds_since_epoch))
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let uri = std::env::var("SCYLLA_URI").unwrap_or_else(|_| "127.0.0.1:9042".to_string());
-    let session = SessionBuilder::new()
-        .known_node(uri)
-        .build()
-        .await
-        .expect("Session building failed");
-    
-    let session = Arc::new(session);
+    let db = match Database::create("knotter_db.redb") {
+        Ok(database) => database,
+        Err(e) => return Err(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())),
+    };
 
-    session.query("CREATE KEYSPACE IF NOT EXISTS mykeyspace WITH REPLICATION = {'class' : 'SimpleStrategy', 'replication_factor' : 1}", &[]).await;
-
-    session
-    .query(
-        "CREATE TABLE IF NOT EXISTS mykeyspace.transactions (
-            globe_id text,
-            transaction_id TIMEUUID,
-            operation_id int,
-            object_uuid UUID,
-            object_data text,
-            PRIMARY KEY (globe_id, transaction_id)
-        )",
-        &[],
-    )
-    .await;
+    let db = Arc::new(db);
 
     HttpServer::new(move || {
         App::new()
-            .app_data(web::Data::new(session.clone()))
-            .service(get_data)
+            .app_data(web::Data::new(db.clone()))
             .service(get_data_by_globe_id)
             .service(set_data)
             .service(healthcheck)
