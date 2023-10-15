@@ -1,69 +1,18 @@
-use actix_web::{web, App, HttpResponse, HttpServer, Result, ResponseError, Responder, get, post};
+mod errors;
+mod serialization;
+mod helpers;
+
+use actix_web::{web, App, HttpResponse, HttpServer, Result, Responder, get, post};
 use std::sync::Arc;
 use serde::{Deserialize, Serialize};
-use std::fmt;
-use chrono::{Utc};
+use chrono::{self, Utc};
 use redb::{Database, ReadableTable, TableDefinition};
+use errors::MyError;
+use serialization::*;
+use helpers::*;
 
 const TABLE: TableDefinition<&str, &str> = TableDefinition::new("knotter_log");
 
-#[derive(Debug)]
-enum MyError {
-    NotFound,
-    DatabaseError(String),
-    ValidationError(String),
-    InternalServerError(String),
-    // ... other errors
-}
-
-impl From<redb::TransactionError> for MyError {
-    fn from(err: redb::TransactionError) -> Self {
-        MyError::DatabaseError(err.to_string())
-    }
-}
-
-impl From<redb::TableError> for MyError {
-    fn from(err: redb::TableError) -> Self {
-        MyError::DatabaseError(err.to_string())
-    }
-}
-
-impl From<redb::StorageError> for MyError {
-    fn from(err: redb::StorageError) -> Self {
-        MyError::DatabaseError(err.to_string())
-    }
-}
-
-impl From<redb::CommitError> for MyError {
-    fn from(err: redb::CommitError) -> Self {
-        MyError::DatabaseError(err.to_string())
-    }
-}
-
-
-impl fmt::Display for MyError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            MyError::NotFound => write!(f, "Not found"),
-            MyError::DatabaseError(ref message) => write!(f, "Database error: {}", message),
-            MyError::ValidationError(ref message) => write!(f, "Validation error: {}", message),
-            MyError::InternalServerError(ref message) => write!(f, "Internal error: {}", message),
-            // ... other error variants
-        }
-    }
-}
-
-impl ResponseError for MyError {
-    fn error_response(&self) -> HttpResponse {
-        match *self {
-            MyError::NotFound => HttpResponse::NotFound().finish(),
-            MyError::DatabaseError(ref message) => HttpResponse::InternalServerError().json(message),
-            MyError::ValidationError(ref message) => HttpResponse::BadRequest().json(message),
-            MyError::InternalServerError(ref message) => HttpResponse::InternalServerError().json(message),
-            // ... other error mappings
-        }
-    }
-}
 
 #[derive(Serialize)]
 pub struct Response {
@@ -86,41 +35,35 @@ struct TransactionDataOut {
     object_data: String,
 }
 
-fn get_after_dashdash(s: &str) -> Option<&str> {
-    let mut parts = s.split("--");
-    parts.next()?;  // consume everything before "--"
-    parts.next()    // get everything after "--"
-}
-
 #[get("/{globe_id}/{transaction_id}")]
 async fn get_data_by_globe_id(
     path_info: web::Path<(String, String)>,
     db: web::Data<Arc<Database>>,
 ) -> Result<HttpResponse, MyError> {
-    let globe_id = &path_info.0;
-    let transaction_id = &path_info.1;
+    let (mut globe_id, transaction_id) = (path_info.0.clone(), path_info.1.clone());
+
+    globe_id = process_globe_id(&globe_id)?;
 
     let read_txn = db.begin_read()?;
     let table = read_txn.open_table(TABLE)?;
 
-    let mut iter = {
-        let start = if transaction_id == "0" {
-            format!("{}--", globe_id)
-        } else {
-            format!("{}--{}", globe_id, transaction_id)
-        };
+    let start = format!("{}--", globe_id);
+    let end = format!("{}--{}", globe_id, "\u{10ffff}");
+    let range = table.range::<&str>(start.as_str()..end.as_str()).unwrap();
 
-        let end = format!("{}--{}", globe_id, "\u{10ffff}");
-        table.range::<&str>(start.as_str()..end.as_str()).unwrap()
-    };
-
-    if transaction_id != "0" {
-        // Skip the first item
-        iter.next();
+    let mut results: Vec<_>;
+    
+    if transaction_id == "0" {
+        results = range.collect();
+    } else {
+        results = range.rev().collect();
+        results.reverse(); // To make the order correct
+        results.truncate(results.len() - 1); // Skip the first (now last) item
     }
 
     let mut response_data = Vec::new();
-    for item in iter {
+
+    for item in results {
         match item {
             Ok((key, value)) => {
                 let transaction_data = TransactionDataOut {
@@ -130,7 +73,7 @@ async fn get_data_by_globe_id(
                 response_data.push(transaction_data);
             },
             Err(err) => {
-                return Err(MyError::DatabaseError(format!("Fetching of data failed: {}", err)))
+                return Err(MyError::DatabaseError(format!("Fetching of data failed: {}", err)));
             }
         }
     }
@@ -138,10 +81,6 @@ async fn get_data_by_globe_id(
     Ok(HttpResponse::Ok().json(response_data))
 }
 
-#[derive(Deserialize)]
-struct TransactionDataIncoming {
-    object_data: String,
-}
 
 #[post("/{globe_id}")]
 async fn set_data(
@@ -149,7 +88,11 @@ async fn set_data(
     db: web::Data<Arc<Database>>,
     data: web::Json<TransactionDataIncoming>,
 ) -> Result<String, MyError> {
-    //Must validate first
+    let globe_id = process_globe_id(&globe_id)?;
+
+    data.validate()?;
+
+    let serialized_data = serde_json::to_string(&*data)?; 
 
     let now = Utc::now();
     let nanoseconds_since_epoch = (now.timestamp_subsec_nanos() as i64 + now.timestamp() * 1_000_000_000).to_string();
@@ -158,7 +101,7 @@ async fn set_data(
     let write_txn = db.begin_write()?;
     {
         let mut table = write_txn.open_table(TABLE)?;
-        table.insert(&key.as_str(), &data.object_data.as_str())?;
+        table.insert(&key.as_str(), &*serialized_data)?;
     }
     write_txn.commit()?;
 
