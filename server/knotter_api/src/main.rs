@@ -90,10 +90,6 @@ async fn set_data(
     db: web::Data<Arc<Database>>,
     data: web::Json<Transaction>,
 ) -> Result<String, MyError> {
-    if let Transaction::Delete(_) = &*data {
-        return Err(MyError::ValidationError("Only insert operations are allowed on this endpoint.".to_string()));
-    }
-
     let transaction_data = if let Transaction::Insert(data) = &*data {
         data
     } else {
@@ -125,34 +121,17 @@ async fn set_data(
 async fn delete_data(
     path_info: web::Path<(String, Uuid)>,
     db: web::Data<Arc<Database>>,
-    data: web::Json<Transaction>,
 ) -> Result<String, MyError> {
     let (globe_id, object_uuid) = path_info.into_inner();
     let globe_id = process_globe_id(&globe_id)?;
 
-    if let Transaction::Insert(_) = &*data {
-        return Err(MyError::ValidationError("Only delete operations are allowed on this endpoint.".to_string()));
-    }
-
-    let uuid_to_delete = if let Transaction::Delete(uuid) = &*data {
-        uuid
-    } else {
-        // This block should never be hit given the previous check, but it's here for completeness.
-        return Err(MyError::InternalServerError("Unexpected data type.".to_string()));
-    };
-
-    // Now you have both `globe_id` and `uuid_to_delete` to process the deletion
-    // Make sure the provided UUID in the JSON body matches the one in the path, if necessary.
-    if *uuid_to_delete != object_uuid {
-        return Err(MyError::ValidationError("Mismatched UUIDs.".to_string()));
-    }
+    Transaction::validate_delete(&object_uuid, &globe_id, &*db)?;
 
     // Proceed with your deletion logic
     // ...
 
-    Ok(format!("Successfully processed delete transaction for UUID: {}", uuid_to_delete))
+    Ok(format!("Successfully processed delete transaction for UUID: {}", object_uuid))
 }
-
 
 
 #[actix_web::main]
