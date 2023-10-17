@@ -1,0 +1,5 @@
+{
+    "rust-analyzer.linkedProjects": [
+        "./server/knotter_api/Cargo.toml"
+    ]
+}

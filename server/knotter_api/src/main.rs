@@ -1,8 +1,10 @@
 mod errors;
 mod serialization;
 mod helpers;
+mod point_validation;
 
-use actix_web::{web, App, HttpResponse, HttpServer, Result, Responder, get, post};
+use actix_web::{web, App, HttpResponse, HttpServer, Result, Responder, get, post, delete};
+use uuid::Uuid;
 use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use chrono::{self, Utc};
@@ -11,17 +13,17 @@ use errors::MyError;
 use serialization::*;
 use helpers::*;
 
-const TABLE: TableDefinition<&str, &str> = TableDefinition::new("knotter_log");
+pub const TABLE: TableDefinition<&str, &str> = TableDefinition::new("knotter_log");
 
 
 #[derive(Serialize)]
-pub struct Response {
+pub struct HealthResponse {
     pub message: String,
 }
 
 #[get("/health")]
 async fn healthcheck() -> impl Responder {
-    let response = Response {
+    let response = HealthResponse {
         message: "Everything is working fine".to_string(),
     };
     HttpResponse::Ok().json(response)
@@ -86,13 +88,24 @@ async fn get_data_by_globe_id(
 async fn set_data(
     globe_id: web::Path<String>,
     db: web::Data<Arc<Database>>,
-    data: web::Json<TransactionDataIncoming>,
+    data: web::Json<Transaction>,
 ) -> Result<String, MyError> {
+    if let Transaction::Delete(_) = &*data {
+        return Err(MyError::ValidationError("Only insert operations are allowed on this endpoint.".to_string()));
+    }
+
+    let transaction_data = if let Transaction::Insert(data) = &*data {
+        data
+    } else {
+        // This block should never be hit given the previous check, but it's here for completeness.
+        return Err(MyError::InternalServerError("Unexpected data type.".to_string()));
+    };
+
     let globe_id = process_globe_id(&globe_id)?;
 
-    data.validate()?;
+    transaction_data.validate(&globe_id, &*db)?;
 
-    let serialized_data = serde_json::to_string(&*data)?; 
+    let serialized_data = serde_json::to_string(&*transaction_data)?; 
 
     let now = Utc::now();
     let nanoseconds_since_epoch = (now.timestamp_subsec_nanos() as i64 + now.timestamp() * 1_000_000_000).to_string();
@@ -107,6 +120,40 @@ async fn set_data(
 
     Ok(format!("Successfully inserted: Globe ID: {}, New Transaction ID: {}", globe_id, nanoseconds_since_epoch))
 }
+
+#[delete("/{globe_id}/{object_uuid}")]
+async fn delete_data(
+    path_info: web::Path<(String, Uuid)>,
+    db: web::Data<Arc<Database>>,
+    data: web::Json<Transaction>,
+) -> Result<String, MyError> {
+    let (globe_id, object_uuid) = path_info.into_inner();
+    let globe_id = process_globe_id(&globe_id)?;
+
+    if let Transaction::Insert(_) = &*data {
+        return Err(MyError::ValidationError("Only delete operations are allowed on this endpoint.".to_string()));
+    }
+
+    let uuid_to_delete = if let Transaction::Delete(uuid) = &*data {
+        uuid
+    } else {
+        // This block should never be hit given the previous check, but it's here for completeness.
+        return Err(MyError::InternalServerError("Unexpected data type.".to_string()));
+    };
+
+    // Now you have both `globe_id` and `uuid_to_delete` to process the deletion
+    // Make sure the provided UUID in the JSON body matches the one in the path, if necessary.
+    if *uuid_to_delete != object_uuid {
+        return Err(MyError::ValidationError("Mismatched UUIDs.".to_string()));
+    }
+
+    // Proceed with your deletion logic
+    // ...
+
+    Ok(format!("Successfully processed delete transaction for UUID: {}", uuid_to_delete))
+}
+
+
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
