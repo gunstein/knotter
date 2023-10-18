@@ -36,7 +36,7 @@ impl Transaction {
         for item in iter {
             match item {
                 Ok((_key, value)) => {
-                    let data = parse_json(value.value()).unwrap();
+                    let data = parse_json(value.value())?;
                     if data.is_insert && data.is_fixed {
                         map_alive_objects.insert(data.object_uuid, data);
                     } else {
@@ -53,15 +53,29 @@ impl Transaction {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct TransactionData {
     is_fixed: bool,
     is_insert: bool,
     object_uuid: Uuid,
-    color: String,
-    position: Position,
+    color: Option<String>, 
+    position: Option<Position>,
     velocity: Option<Velocity>,
 }
+
+impl TransactionData {
+    pub fn new(uuid: Uuid, is_insert: bool) -> Self {
+        TransactionData {
+            is_fixed: false,
+            is_insert,
+            object_uuid: uuid,
+            color: None,
+            position: None,
+            velocity: None,
+        }
+    }
+}
+
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Position {
@@ -92,7 +106,7 @@ fn parse_json(json_str: &str) -> Result<TransactionData, MyError> {
 }
 
 impl TransactionData {
-    pub fn validate(&self, globe_id: &str, db: &Database) -> Result<(), MyError> {
+    pub fn validate_insert(&self, globe_id: &str, db: &Database) -> Result<(), MyError> {
         // Preliminary checks
         if self.is_fixed && self.velocity.is_some() {
             return Err(MyError::ValidationError("Velocity should be None for fixed objects.".to_string()));
@@ -104,7 +118,9 @@ impl TransactionData {
         let mut vec_position_alive_fixed_objects: Vec<&Position> = Vec::new();
         for value in map_alive_objects.values() {
             if value.is_fixed {
-                vec_position_alive_fixed_objects.push(&value.position);
+                if let Some(position) = &value.position {
+                    vec_position_alive_fixed_objects.push(position);
+                }
             }
         }
 
@@ -114,12 +130,20 @@ impl TransactionData {
         };
 
         // Check that the new object is on the surface of the sphere/globe
-        if !sphere.contains(&self.position) {
+        let position = self.position.as_ref().ok_or_else(|| 
+            MyError::ValidationError("Position is missing.".to_string())
+        )?;
+        
+        if !sphere.contains(position) {
             return Err(MyError::ValidationError("Object is not on surface of sphere.".to_string()));
         }
 
         // Check the distance of the new object from existing fixed objects
-        if !is_valid_distance_from_others(&self.position, &vec_position_alive_fixed_objects, 1.0 /* min_distance */) {
+        let position = self.position.as_ref().ok_or_else(|| 
+            MyError::ValidationError("Position is missing.".to_string())
+        )?;
+        
+        if !is_valid_distance_from_others(position, &vec_position_alive_fixed_objects, 1.0 /* min_distance */) {
             return Err(MyError::ValidationError("Object is too close to other fixed objects.".to_string()));
         }
 

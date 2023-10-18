@@ -51,7 +51,8 @@ async fn get_data_by_globe_id(
 
     let start = format!("{}--", globe_id);
     let end = format!("{}--{}", globe_id, "\u{10ffff}");
-    let range = table.range::<&str>(start.as_str()..end.as_str()).unwrap();
+
+    let range = table.range::<&str>(start.as_str()..end.as_str())?;
 
     let mut results: Vec<_>;
     
@@ -90,22 +91,18 @@ async fn set_data(
     db: web::Data<Arc<Database>>,
     data: web::Json<Transaction>,
 ) -> Result<String, MyError> {
-    let transaction_data = if let Transaction::Insert(data) = &*data {
-        data
-    } else {
-        // This block should never be hit given the previous check, but it's here for completeness.
-        return Err(MyError::InternalServerError("Unexpected data type.".to_string()));
+    let transaction_data = match &*data {
+        Transaction::Insert(data) => data,
+        _ => return Err(MyError::InternalServerError("Unexpected data type.".to_string())),
     };
 
     let globe_id = process_globe_id(&globe_id)?;
 
-    transaction_data.validate(&globe_id, &*db)?;
+    transaction_data.validate_insert(&globe_id, &*db)?;
 
     let serialized_data = serde_json::to_string(&*transaction_data)?; 
 
-    let now = Utc::now();
-    let nanoseconds_since_epoch = (now.timestamp_subsec_nanos() as i64 + now.timestamp() * 1_000_000_000).to_string();
-    let key = format!("{}--{}", globe_id, nanoseconds_since_epoch);
+    let (key, nanoseconds_since_epoch) = generate_key(&globe_id);
 
     let write_txn = db.begin_write()?;
     {
@@ -115,6 +112,14 @@ async fn set_data(
     write_txn.commit()?;
 
     Ok(format!("Successfully inserted: Globe ID: {}, New Transaction ID: {}", globe_id, nanoseconds_since_epoch))
+}
+
+fn generate_key(globe_id: &str) -> (String, String) {
+    let now = Utc::now();
+    let nanoseconds_since_epoch = (now.timestamp_subsec_nanos() as i64 + now.timestamp() * 1_000_000_000).to_string();
+    let key = format!("{}--{}", globe_id, nanoseconds_since_epoch);
+
+    (key, nanoseconds_since_epoch)
 }
 
 #[delete("/{globe_id}/{object_uuid}")]
@@ -127,10 +132,19 @@ async fn delete_data(
 
     Transaction::validate_delete(&object_uuid, &globe_id, &*db)?;
 
-    // Proceed with your deletion logic
-    // ...
+    let transaction_data = TransactionData::new(object_uuid, false);
+    let serialized_data = serde_json::to_string(&transaction_data)?; 
 
-    Ok(format!("Successfully processed delete transaction for UUID: {}", object_uuid))
+    let (key, nanoseconds_since_epoch) = generate_key(&globe_id);
+
+    let write_txn = db.begin_write()?;
+    {
+        let mut table = write_txn.open_table(TABLE)?;
+        table.insert(&key.as_str(), &*serialized_data)?;
+    }
+    write_txn.commit()?;
+
+    Ok(format!("Successfully deleted: Globe ID: {}, Object_uuid: {},  New Transaction ID: {}", globe_id, object_uuid, nanoseconds_since_epoch))
 }
 
 
