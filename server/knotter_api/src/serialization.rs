@@ -4,6 +4,10 @@ use crate::errors::MyError;
 use crate::point_validation::*;
 use redb::{Database, ReadableTable};
 use std::collections::HashMap;
+use nalgebra::Vector3;
+
+use crate::impulse_validation::{validate_impulse_direction, validate_impulse_magnitude};
+
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Transaction {
@@ -60,7 +64,7 @@ pub struct TransactionData {
     object_uuid: Uuid,
     color: Option<String>, 
     position: Option<Position>,
-    velocity: Option<Velocity>,
+    impulse: Option<Impulse>,
 }
 
 impl TransactionData {
@@ -71,17 +75,17 @@ impl TransactionData {
             object_uuid: uuid,
             color: None,
             position: None,
-            velocity: None,
+            impulse: None,
         }
     }
 }
 
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Position {
-    x: f64,
-    y: f64,
-    z: f64,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
 }
 
 impl Position {
@@ -91,15 +95,26 @@ impl Position {
         let dz = self.z - other.z;
         dx*dx + dy*dy + dz*dz
     }
+
+    // Conversion to nalgebra::Vector3<f64>
+    pub fn to_vector3(&self) -> Vector3<f64> {
+        Vector3::new(self.x, self.y, self.z)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct Velocity {
+pub struct Impulse {
     v_x: f64,
     v_y: f64,
     v_z: f64,
 }
 
+impl Impulse {
+    // Conversion to nalgebra::Vector3<f64>
+    pub fn to_vector3(&self) -> Vector3<f64> {
+        Vector3::new(self.v_x, self.v_y, self.v_z)
+    }
+}
 
 fn parse_json(json_str: &str) -> Result<TransactionData, MyError> {
     serde_json::from_str(json_str).map_err(|err| MyError::JsonError(err.to_string()))
@@ -108,7 +123,7 @@ fn parse_json(json_str: &str) -> Result<TransactionData, MyError> {
 impl TransactionData {
     pub fn validate_insert(&self, globe_id: &str, db: &Database) -> Result<(), MyError> {
         // Preliminary checks
-        if self.is_fixed && self.velocity.is_some() {
+        if self.is_fixed && self.impulse.is_some() {
             return Err(MyError::ValidationError("Velocity should be None for fixed objects.".to_string()));
         }
 
@@ -124,27 +139,20 @@ impl TransactionData {
             }
         }
 
-        let sphere = Sphere {
-            center: Position { x: 0.0, y: 0.0, z: 0.0 },
-            radius: 1.0,
-        };
-
         // Check that the new object is on the surface of the sphere/globe
         let position = self.position.as_ref().ok_or_else(|| 
             MyError::ValidationError("Position is missing.".to_string())
         )?;
         
-        if !sphere.contains(position) {
-            return Err(MyError::ValidationError("Object is not on surface of sphere.".to_string()));
+        let ball = Ball::new(position);
+
+        if !Globe::contains(&ball) {
+            return Err(MyError::ValidationError("Ball is not on surface of sphere.".to_string()));
         }
 
-        // Check the distance of the new object from existing fixed objects
-        let position = self.position.as_ref().ok_or_else(|| 
-            MyError::ValidationError("Position is missing.".to_string())
-        )?;
-        
-        if !is_valid_distance_from_others(position, &vec_position_alive_fixed_objects, 1.0 /* min_distance */) {
-            return Err(MyError::ValidationError("Object is too close to other fixed objects.".to_string()));
+        // Check the distance of the new ball from existing fixed balls
+        if !is_valid_distance_from_others(position, &vec_position_alive_fixed_objects) {
+            return Err(MyError::ValidationError("Ball is too close to other fixed objects.".to_string()));
         }
 
         // Check that UUID of new object is not among living objects.
@@ -152,8 +160,31 @@ impl TransactionData {
             return Err(MyError::ValidationError("Object UUID is already in use.".to_string()));
         }
 
+        //Validate color
+        match &self.color {
+            Some(color) => {
+                if !crate::validate_color(color) {
+                    return Err(MyError::ValidationError("Invalid color value provided. Please use one of the accepted 6-digit hex formats: #FF0000 (Red), #00FF00 (Green), #0000FF (Blue), or #FFFF00 (Yellow).".to_string()));
+                }
+            },
+            None => {
+                return Err(MyError::ValidationError("Color is required for insertion.".to_string()));
+            }
+        }
+
+        // Validate impulse direction and magnitude if the ball is not fixed
+        if !self.is_fixed {
+            if let Some(impulse) = &self.impulse {
+                validate_impulse_direction(position, impulse)?;
+                validate_impulse_magnitude(impulse)?;
+            } else {
+                return Err(MyError::ValidationError("Impulse is required for dynamic objects.".to_string()));
+            }
+        }
         // Any additional validation checks can go here...
 
         Ok(())
     }
+
+    
 }

@@ -2,6 +2,7 @@ mod errors;
 mod serialization;
 mod helpers;
 mod point_validation;
+mod impulse_validation;
 
 use actix_web::{web, App, HttpResponse, HttpServer, Result, Responder, get, post, delete};
 use uuid::Uuid;
