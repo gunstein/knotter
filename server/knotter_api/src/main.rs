@@ -1,18 +1,19 @@
 mod errors;
 mod serialization;
 mod helpers;
-mod point_validation;
-mod impulse_validation;
+mod validation;
 
 use actix_web::{web, App, HttpResponse, HttpServer, Result, Responder, get, post, delete};
 use uuid::Uuid;
-use std::sync::Arc;
+use std::{sync::Arc, fs};
 use serde::{Deserialize, Serialize};
 use chrono::{self, Utc};
 use redb::{Database, ReadableTable, TableDefinition};
 use errors::MyError;
 use serialization::*;
 use helpers::*;
+use knotter_api::setup_database;
+use std::env;
 
 pub const TABLE: TableDefinition<&str, &str> = TableDefinition::new("knotter_log");
 
@@ -148,15 +149,13 @@ async fn delete_data(
     Ok(format!("Successfully deleted: Globe ID: {}, Object_uuid: {},  New Transaction ID: {}", globe_id, object_uuid, nanoseconds_since_epoch))
 }
 
-
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let db = match Database::create("knotter_db.redb") {
-        Ok(database) => database,
-        Err(e) => return Err(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())),
-    };
+    let args: Vec<String> = env::args().collect();
+    let is_test_mode = args.contains(&"--test-mode".to_string());
 
-    let db = Arc::new(db);
+    let db = setup_database(is_test_mode)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
 
     HttpServer::new(move || {
         App::new()

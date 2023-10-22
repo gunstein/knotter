@@ -1,7 +1,7 @@
 use nalgebra::Vector3;
-use super::Position;
-use super::Impulse;
-use super::MyError;
+use crate::Position;
+use crate::Impulse;
+use crate::MyError;
 
 const TOLERANCE: f64 = 1e-6;
 const MIN_IMPULSE_MAGNITUDE: f64 = 0.0;  // Set to your desired minimum

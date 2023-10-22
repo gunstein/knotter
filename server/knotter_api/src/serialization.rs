@@ -1,15 +1,15 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use crate::errors::MyError;
-use crate::point_validation::*;
+use crate::validation::point_validation::*;
 use redb::{Database, ReadableTable};
 use std::collections::HashMap;
 use nalgebra::Vector3;
+use crate::validation::impulse_validation::{validate_impulse_direction, validate_impulse_magnitude};
 
-use crate::impulse_validation::{validate_impulse_direction, validate_impulse_magnitude};
 
-
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum Transaction {
     Insert(TransactionData),
 }
@@ -57,31 +57,17 @@ impl Transaction {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
 pub struct TransactionData {
-    is_fixed: bool,
-    is_insert: bool,
-    object_uuid: Uuid,
-    color: Option<String>, 
-    position: Option<Position>,
-    impulse: Option<Impulse>,
+    pub is_fixed: bool,
+    pub is_insert: bool,
+    pub object_uuid: Uuid,
+    pub color: Option<String>, 
+    pub position: Option<Position>,
+    pub impulse: Option<Impulse>,
 }
 
-impl TransactionData {
-    pub fn new(uuid: Uuid, is_insert: bool) -> Self {
-        TransactionData {
-            is_fixed: false,
-            is_insert,
-            object_uuid: uuid,
-            color: None,
-            position: None,
-            impulse: None,
-        }
-    }
-}
-
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Position {
     pub x: f64,
     pub y: f64,
@@ -102,11 +88,11 @@ impl Position {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Impulse {
-    v_x: f64,
-    v_y: f64,
-    v_z: f64,
+    pub v_x: f64,
+    pub v_y: f64,
+    pub v_z: f64,
 }
 
 impl Impulse {
@@ -121,6 +107,17 @@ fn parse_json(json_str: &str) -> Result<TransactionData, MyError> {
 }
 
 impl TransactionData {
+    pub fn new(uuid: Uuid, is_insert: bool) -> Self {
+        TransactionData {
+            is_fixed: false,
+            is_insert,
+            object_uuid: uuid,
+            color: None,
+            position: None,
+            impulse: None,
+        }
+    }
+
     pub fn validate_insert(&self, globe_id: &str, db: &Database) -> Result<(), MyError> {
         // Preliminary checks
         if self.is_fixed && self.impulse.is_some() {
@@ -185,6 +182,69 @@ impl TransactionData {
 
         Ok(())
     }
+}
 
-    
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use uuid::Uuid;
+
+    #[test]
+    fn test_insert_serialization() {
+        let uuid = Uuid::new_v4(); // Generates a new random UUID
+
+        let transaction_data = TransactionData {
+            is_insert: true,
+            is_fixed: true,
+            object_uuid: uuid,
+            color: Some("red".to_string()),
+            position: Some(Position { x: 1.0, y: 2.0, z: 3.0 }),
+            impulse: Some(Impulse { v_x: 1.0, v_y: 2.0, v_z: 3.0 }),
+        };
+        
+        let insert = Transaction::Insert(transaction_data);
+
+        // Step 3: Serialize
+        let serialized = serde_json::to_string(&insert).expect("Failed to serialize");
+
+        // Step 4: Assert Serialized Output
+        //assert_eq!(serialized, format!("{{\"insert\":{{\"is_fixed\":true,\"is_insert\":true,\"object_uuid\":\"{}\",\"color\":\"red\",\"position\":{{\"x\":1.0,\"y\":2.0,\"z\":3.0}},\"impulse\":{{\"v_x\":1.0,\"v_y\":2.0,\"v_z\":3.0}}}}}}", uuid.to_string()));
+        assert_eq!(serialized, format!(r#"{{"insert":{{"is_fixed":true,"is_insert":true,"object_uuid":"{}","color":"red","position":{{"x":1.0,"y":2.0,"z":3.0}},"impulse":{{"v_x":1.0,"v_y":2.0,"v_z":3.0}}}}}}"#, uuid.to_string()));
+
+        // Step 5: Deserialize
+        let deserialized: Transaction = serde_json::from_str(&serialized).expect("Failed to deserialize");
+
+        // Step 6: Assert Deserialized Data
+        assert_eq!(deserialized, insert);
+    }
+
+    #[test]
+    fn test_validate_insert() {
+        let uuid = Uuid::new_v4(); // Generates a new random UUID
+
+        let transaction_data = TransactionData {
+            is_insert: true,
+            is_fixed: true,
+            object_uuid: uuid,
+            color: Some("red".to_string()),
+            position: Some(Position { x: 1.0, y: 2.0, z: 3.0 }),
+            impulse: Some(Impulse { v_x: 1.0, v_y: 2.0, v_z: 3.0 }),
+        };
+        
+        let insert = Transaction::Insert(transaction_data);
+
+        // Step 3: Serialize
+        let serialized = serde_json::to_string(&insert).expect("Failed to serialize");
+
+        // Step 4: Assert Serialized Output
+        //assert_eq!(serialized, format!("{{\"insert\":{{\"is_fixed\":true,\"is_insert\":true,\"object_uuid\":\"{}\",\"color\":\"red\",\"position\":{{\"x\":1.0,\"y\":2.0,\"z\":3.0}},\"impulse\":{{\"v_x\":1.0,\"v_y\":2.0,\"v_z\":3.0}}}}}}", uuid.to_string()));
+        assert_eq!(serialized, format!(r#"{{"insert":{{"is_fixed":true,"is_insert":true,"object_uuid":"{}","color":"red","position":{{"x":1.0,"y":2.0,"z":3.0}},"impulse":{{"v_x":1.0,"v_y":2.0,"v_z":3.0}}}}}}"#, uuid.to_string()));
+
+        // Step 5: Deserialize
+        let deserialized: Transaction = serde_json::from_str(&serialized).expect("Failed to deserialize");
+
+        // Step 6: Assert Deserialized Data
+        assert_eq!(deserialized, insert);
+    }    
 }
