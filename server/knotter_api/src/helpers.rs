@@ -1,5 +1,6 @@
-use crate::errors::{MyError};
+use crate::domain::errors::my_error::MyError;
 use regex::Regex;
+use chrono::{self, Utc};
 
 pub fn get_after_dashdash(s: &str) -> Option<&str> {
     let mut parts = s.split("--");
@@ -20,6 +21,11 @@ pub fn process_globe_id(globe_id: &str) -> Result<String, MyError> {
     }
 
     Ok(globe_id)
+}
+
+pub fn generate_timestamp() -> String {
+    let now = Utc::now();
+    (now.timestamp_subsec_nanos() as i64 + now.timestamp() * 1_000_000_000).to_string()
 }
 
 pub fn validate_color(color: &str) -> bool {

@@ -3,6 +3,16 @@
         "./server/knotter_api/Cargo.toml",
         "./server/knotter_api/Cargo.toml",
         "./server/knotter_api/Cargo.toml",
+        "./server/knotter_api/Cargo.toml",
+        "./server/knotter_api/Cargo.toml",
+        "./server/knotter_api/Cargo.toml",
+        "./server/knotter_api/Cargo.toml",
+        "./server/knotter_api/Cargo.toml",
+        "./server/knotter_api/Cargo.toml",
+        "./server/knotter_api/Cargo.toml",
+        "./server/knotter_api/Cargo.toml",
+        "./server/knotter_api/Cargo.toml",
         "./server/knotter_api/Cargo.toml"
-    ]
+    ],
+    "rust-analyzer.showUnlinkedFileNotification": false
 }

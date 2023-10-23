@@ -6,7 +6,7 @@ use redb::Database;
 
 pub fn validate_insert(data: &TransactionData, globe_id: &str, db: &Database) -> Result<(), MyError> {
     // Preliminary checks
-    if *data.is_fixed && *data.impulse.is_some() {
+    if data.is_fixed && *data.impulse.is_some() {
         return Err(MyError::ValidationError("Velocity should be None for fixed objects.".to_string()));
     }
 
