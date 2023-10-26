@@ -28,17 +28,3 @@ pub fn generate_timestamp() -> String {
     (now.timestamp_subsec_nanos() as i64 + now.timestamp() * 1_000_000_000).to_string()
 }
 
-pub fn validate_color(color: &str) -> bool {
-    let re = Regex::new(r"^#([A-Fa-f0-9]{6})$").unwrap();
-    if !re.is_match(color) {
-        return false;
-    }
-
-    match color.to_lowercase().as_str() {
-        "#ff0000" => true,  // Red
-        "#00ff00" => true,  // Green
-        "#0000ff" => true,  // Blue
-        "#ffff00" => true,  // Yellow
-        _ => false,
-    }
-}

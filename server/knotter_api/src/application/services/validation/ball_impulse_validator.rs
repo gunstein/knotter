@@ -1,13 +1,12 @@
 use nalgebra::Vector3;
-use crate::Position;
-use crate::Impulse;
-use crate::MyError;
+use crate::domain::models::ball_entity::{PositionEntity, ImpulseEntity};
+use crate::domain::errors::my_error::MyError;
 
 const TOLERANCE: f64 = 1e-6;
-const MIN_IMPULSE_MAGNITUDE: f64 = 0.0;  // Set to your desired minimum
-const MAX_IMPULSE_MAGNITUDE: f64 = 1.0; // Set to your desired maximum
+const MIN_IMPULSE_MAGNITUDE: f64 = 0.0; 
+const MAX_IMPULSE_MAGNITUDE: f64 = 1.0;
 
-pub fn validate_impulse_direction(position: &Position, impulse: &Impulse) -> Result<(), MyError> {
+pub fn validate_impulse_direction(position: &PositionEntity, impulse: &ImpulseEntity) -> Result<(), MyError> {
     let dir_from_center = position.to_vector3().normalize();
     let impulse_direction = impulse.to_vector3().normalize();
 
@@ -21,7 +20,7 @@ pub fn validate_impulse_direction(position: &Position, impulse: &Impulse) -> Res
     Ok(())
 }
 
-pub fn validate_impulse_magnitude(impulse: &Impulse) -> Result<(), MyError> {
+pub fn validate_impulse_magnitude(impulse: &ImpulseEntity) -> Result<(), MyError> {
     // magnitude computation using nalgebra
     let impulse_magnitude = impulse.to_vector3().magnitude();
     if impulse_magnitude < MIN_IMPULSE_MAGNITUDE || impulse_magnitude > MAX_IMPULSE_MAGNITUDE {

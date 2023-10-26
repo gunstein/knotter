@@ -1,3 +1,12 @@
+use crate::domain::errors::my_error::MyError;
+use regex::Regex;
+use uuid::Uuid;
+use crate::infrastructure::database::key_value_store::KeyValueStoreTrait;
+use crate::domain::models::ball_entity::{BallEntity, PositionEntity};
+use crate::application::services::validation::ball_position_validator::*;
+use crate::application::services::validation::ball_impulse_validator::*;
+
+
 pub struct ValidationService {
     // ... any shared state or configuration
 }
@@ -9,8 +18,8 @@ impl ValidationService {
         }
     }
     
-    pub fn validate_delete(uuid_to_delete: &Uuid, globe_id: &str, db: &Database) -> Result<(), MyError> {
-        let map_alive_objects = Self::get_alive_objects_map(globe_id, db)?;
+    pub fn validate_delete<T: KeyValueStoreTrait>(uuid_to_delete: &Uuid, globe_id: &str, key_value_store: &T) -> Result<(), MyError> {
+        let map_alive_objects = key_value_store.get_alive_objects_map(globe_id)?;
         
         if !map_alive_objects.contains_key(uuid_to_delete) {
             return Err(MyError::ValidationError("Cannot delete: UUID not found.".to_string()));
@@ -21,16 +30,16 @@ impl ValidationService {
         Ok(())
     }
 
-    pub fn validate_insert(&self, insert_ball_dto: &InsertBallDto, globe_id: &str, db: &Database) -> Result<(), MyError> {
+    pub fn validate_insert<T: KeyValueStoreTrait>(&self, ball_entity: &BallEntity, globe_id: &str, key_value_store: &T) -> Result<(), MyError> {
         // Preliminary checks
-        if data.is_fixed && *data.impulse.is_some() {
+        if ball_entity.is_fixed && ball_entity.impulse.is_some() {
             return Err(MyError::ValidationError("Velocity should be None for fixed objects.".to_string()));
         }
     
         // Retrieve all alive objects
-        let map_alive_objects = Transaction::get_alive_objects_map(globe_id, db)?;
+        let map_alive_objects = key_value_store.get_alive_objects_map(globe_id)?;
     
-        let mut vec_position_alive_fixed_objects: Vec<&Position> = Vec::new();
+        let mut vec_position_alive_fixed_objects: Vec<&PositionEntity> = Vec::new();
         for value in map_alive_objects.values() {
             if value.is_fixed {
                 if let Some(position) = &value.position {
@@ -40,13 +49,13 @@ impl ValidationService {
         }
     
         // Check that the new object is on the surface of the sphere/globe
-        let position = data.position.as_ref().ok_or_else(|| 
+        let position = ball_entity.position.as_ref().ok_or_else(|| 
             MyError::ValidationError("Position is missing.".to_string())
         )?;
         
-        let ball = Ball::new(position);
+        //let ball = Ball::new(position);
     
-        if !Globe::contains(&ball) {
+        if !Globe::contains(&position) {
             return Err(MyError::ValidationError("Ball is not on surface of sphere.".to_string()));
         }
     
@@ -56,14 +65,14 @@ impl ValidationService {
         }
     
         // Check that UUID of new object is not among living objects.
-        if map_alive_objects.contains_key(&data.object_uuid) {
+        if map_alive_objects.contains_key(&ball_entity.uuid) {
             return Err(MyError::ValidationError("Object UUID is already in use.".to_string()));
         }
     
         // Validate color
-        match &data.color {
+        match &ball_entity.color {
             Some(color) => {
-                if !validate_color(color) {
+                if !ValidationService::validate_color(color) {
                     return Err(MyError::ValidationError("Invalid color value provided. Please use one of the accepted 6-digit hex formats: #FF0000 (Red), #00FF00 (Green), #0000FF (Blue), or #FFFF00 (Yellow).".to_string()));
                 }
             },
@@ -73,8 +82,8 @@ impl ValidationService {
         }
     
         // Validate impulse direction and magnitude if the ball is not fixed
-        if !data.is_fixed {
-            if let Some(impulse) = &data.impulse {
+        if !ball_entity.is_fixed {
+            if let Some(impulse) = &ball_entity.impulse {
                 validate_impulse_direction(position, impulse)?;
                 validate_impulse_magnitude(impulse)?;
             } else {
@@ -85,6 +94,72 @@ impl ValidationService {
     
         Ok(())
     }
-    
 
+    fn validate_color(color: &str) -> bool {
+        let re = Regex::new(r"^#([A-Fa-f0-9]{6})$").unwrap();
+        if !re.is_match(color) {
+            return false;
+        }
+    
+        match color.to_lowercase().as_str() {
+            "#ff0000" => true,  // Red
+            "#00ff00" => true,  // Green
+            "#0000ff" => true,  // Blue
+            "#ffff00" => true,  // Yellow
+            _ => false,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::models::ball_entity::{BallEntity, PositionEntity};
+    use std::collections::HashMap;
+
+    // Mock implementation of KeyValueStore to be used in tests
+    struct MockKeyValueStore;
+
+    impl MockKeyValueStore {
+        fn get_alive_objects_map(&self, _globe_id: &str) -> Result<HashMap<Uuid, BallEntity>, MyError> {
+            Ok(HashMap::new())  // Returning an empty map for simplicity. Adjust this as needed.
+        }
+    }
+
+    impl KeyValueStoreTrait for MockKeyValueStore {
+        fn get_alive_objects_map(&self, _globe_id: &str) -> Result<HashMap<Uuid, BallEntity>, MyError> {
+            Ok(HashMap::new())  // Mock implementation
+        }
+        // Mock other methods here as needed...
+    }
+
+    #[test]
+    fn test_validate_insert_ball_not_on_surface() {
+        let validation_service = ValidationService::new();
+        let key_value_store = MockKeyValueStore;
+
+        let ball_entity = BallEntity {
+            is_insert: true,
+            uuid: Uuid::new_v4(),
+            position: Some(PositionEntity { x: 10.0, y: 10.0, z: 10.0 }),
+            color: Some("#ff0000".to_string()),
+            is_fixed: true,
+            impulse: None,
+            // Add any other required fields here
+        };
+
+        let result = validation_service.validate_insert(&ball_entity, "some_globe_id", &key_value_store);
+
+        match result {
+            Ok(_) => panic!("Expected an error, but got Ok"),
+            Err(e) => {
+                match e {
+                    MyError::ValidationError(msg) => {
+                        assert_eq!(msg, "Ball is not on surface of sphere.");
+                    },
+                    _ => panic!("Expected ValidationError but got a different error"),
+                }
+            }
+        }
+    }
 }

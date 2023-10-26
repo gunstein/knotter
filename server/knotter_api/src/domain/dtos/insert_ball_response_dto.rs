@@ -2,7 +2,7 @@ use serde::Serialize;
 
 #[derive(Serialize)]
 pub struct InsertBallResponseDto {
-    message: String,
-    globe_id: String,
-    transaction_id: String,
+    pub message: String,
+    pub globe_id: String,
+    pub transaction_id: String,
 }
