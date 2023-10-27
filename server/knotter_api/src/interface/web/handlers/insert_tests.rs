@@ -1,7 +1,9 @@
 #[cfg(test)]
 mod tests {
     use uuid::Uuid;
-    use crate::domain::dtos::insert_ball_dto::{InsertBallDto, InsertPositionDto, InsertImpulseDto};
+    use crate::domain::dtos::insert_ball_dto::InsertBallDto;
+    use crate::domain::dtos::impulse_dto::ImpulseDto;
+    use crate::domain::dtos::position_dto::PositionDto;
     use crate::domain::mapping::ball_mapper::{dto_to_entity, entity_to_dto};
     use crate::domain::models::ball_entity::BallEntity;
 
@@ -14,8 +16,8 @@ mod tests {
             is_fixed: true,
             uuid: uuid,
             color: Some("red".to_string()),
-            position: Some(InsertPositionDto { x: 1.0, y: 2.0, z: 3.0 }),
-            impulse: Some(InsertImpulseDto { x: 1.0, y: 2.0, z: 3.0 }),
+            position: Some(PositionDto { x: 1.0, y: 2.0, z: 3.0 }),
+            impulse: Some(ImpulseDto { x: 1.0, y: 2.0, z: 3.0 }),
         };
         
         let insert_ball_entity_in = dto_to_entity(&insert_ball_dto_in);

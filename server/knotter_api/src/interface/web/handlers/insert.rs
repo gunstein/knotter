@@ -21,9 +21,8 @@ pub async fn handle_insert(
     let insert_ball_dto: InsertBallDto = data.into_inner();
 
     let ball_entity = dto_to_entity(&insert_ball_dto);
-    //validation_service.validate_insert(&ball_entity, &globe_id, &key_value_store)?;
-    validation_service.validate_insert(&ball_entity, &globe_id, key_value_store.as_ref().as_ref())?;
 
+    validation_service.validate_insert(&ball_entity, &globe_id, key_value_store.as_ref().as_ref())?;
 
     let serialized_data = serde_json::to_string(&ball_entity)?; 
 

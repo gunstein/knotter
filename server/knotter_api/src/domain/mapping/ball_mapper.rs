@@ -1,4 +1,6 @@
-use crate::domain::dtos::insert_ball_dto::{InsertBallDto, InsertPositionDto, InsertImpulseDto};
+use crate::domain::dtos::insert_ball_dto::InsertBallDto;
+use crate::domain::dtos::impulse_dto::ImpulseDto;
+use crate::domain::dtos::position_dto::PositionDto;
 use crate::domain::models::ball_entity::{BallEntity, PositionEntity, ImpulseEntity};
 
 pub fn dto_to_entity(dto: &InsertBallDto) -> BallEntity {
@@ -26,12 +28,12 @@ pub fn entity_to_dto(entity: &BallEntity) -> InsertBallDto {
         is_insert: entity.is_insert,
         uuid: entity.uuid,
         color: entity.color.clone(),
-        position: entity.position.as_ref().map(|pos| InsertPositionDto {
+        position: entity.position.as_ref().map(|pos| PositionDto {
             x: pos.x,
             y: pos.y,
             z: pos.z,
         }),
-        impulse: entity.impulse.as_ref().map(|imp| InsertImpulseDto {
+        impulse: entity.impulse.as_ref().map(|imp| ImpulseDto {
             x: imp.x,
             y: imp.y,
             z: imp.z,
