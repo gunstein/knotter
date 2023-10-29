@@ -1,14 +1,14 @@
 use actix_web::{web, HttpResponse, Result};
 use std::sync::Arc;
+use serde_json;
 use crate::domain::errors::my_error::MyError;
 use crate::domain::dtos::get_ball_transactions_by_globeid_response_dto::GetBallTransactionsByGlobeIdResponseDto;
 use crate::helpers::*;
 use actix_web::get;
-use crate::application::services::validation_service::ValidationService;
 use crate::infrastructure::database::key_value_store::KeyValueStore;
 use crate::domain::dtos::ball_transaction_dto::BallTransactionDto;
-use crate::domain::dtos::ball_dto::BallDto;
-use serde_json;
+use crate::domain::models::ball_entity::BallEntity;
+use crate::domain::mapping::ball_mapper::entity_to_dto;
 
 #[get("/{globe_id}/{transaction_id}")]
 async fn get_data_by_globe_id(
@@ -23,19 +23,22 @@ async fn get_data_by_globe_id(
 
     let ball_transactions: Vec<_> = results
         .into_iter()
-        .filter_map(|(key, value)| {
-            let transaction_id = get_after_dashdash(&key).unwrap().to_string();
-            // Deserialize the JSON value into a BallDto
-            match serde_json::from_str::<BallDto>(&value) {
-                Ok(ball) => Some(BallTransactionDto { transaction_id, ball }),
-                Err(_) => None
-            }
+        .map(|(key, value)| {
+            // Deserialize the value string into a BallEntity
+            let ball_entity: BallEntity = serde_json::from_str(&value)
+                .map_err(|err| MyError::JsonError(err.to_string()))?;
+
+            let ball_dto = entity_to_dto(&ball_entity);
+
+            let transaction_id = get_after_dashdash(&key)
+                .ok_or(MyError::ValidationError("Invalid transaction key format".to_string()))?;
+            
+            Ok(BallTransactionDto {
+                transaction_id: transaction_id.to_string(),
+                ball_dto,
+            })
         })
-        .collect();
+        .collect::<Result<Vec<_>, MyError>>()?;  // Handle potential errors during mapping
 
-    let response_data = GetBallTransactionsByGlobeIdResponseDto {
-        ball_transactions
-    };
-
-    Ok(HttpResponse::Ok().json(response_data))
+    Ok(HttpResponse::Ok().json(GetBallTransactionsByGlobeIdResponseDto { ball_transactions }))
 }

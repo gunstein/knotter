@@ -1,34 +1,4 @@
-Start ScyllaDb
-docker run --name scylladb -d -p 9042:9042 scylladb/scylla
-or
-docker run --rm --name scylladb -it -p 9042:9042 scylladb/scylla --smp 2
 
-Connect to scylla container
-docker exec -it scylladb cqlsh
-
-Create table
-CREATE KEYSPACE IF NOT EXISTS mykeyspace WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };
-
-USE mykeyspace;
-
-CREATE TABLE IF NOT EXISTS transactions (
-    globe_id text,
-    transaction_id TIMEUUID,
-    operation_id int,
-    object_uuid UUID,
-    object_data text,
-    PRIMARY KEY (globe_id, transaction_id)
-);
-
-
-INSERT INTO transactions (globe_id, transaction_id, operation_id, object_uuid, object_data) 
-VALUES ('globe123', 9a3227ec-8e82-43aa-bc1a-31e9780f90d8, 1, a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a15, 'first data');
-
-INSERT INTO transactions (globe_id, transaction_id, operation_id, object_uuid, object_data) 
-VALUES ('globe123', a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12, 2, a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a16, 'second data');
-
-INSERT INTO transactions (globe_id, transaction_id, operation_id, object_uuid, object_data) 
-VALUES ('globe456', a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13, 1, a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a17, 'another data');
 
 curl -X POST \
      -H "Content-Type: application/json" \
@@ -83,3 +53,20 @@ curl -X POST \
      curl http://127.0.0.1:8080/globe1/0
 
      curl http://127.0.0.1:8080/health
+
+
+curl -X POST \
+     -H "Content-Type: application/json" \
+     -d '{
+        "is_fixed": true,
+        "is_insert": true,
+        "uuid": "4d3cbd35-41e8-40be-96d2-ac0c4b9f4f26",
+        "color": "#ff0000",
+        "position": {
+            "x": -1.05,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "velocity": null
+     }' \
+http://127.0.0.1:8080/globe1

@@ -8,7 +8,7 @@ mod tests {
     use crate::domain::models::ball_entity::BallEntity;
 
     #[test]
-    fn test_insert_mapping_and_serialization() {
+    fn test_mapping_and_serialization() {
         let uuid = Uuid::new_v4(); // Generates a new random UUID
 
         let insert_ball_dto_in = InsertBallDto {
@@ -24,7 +24,7 @@ mod tests {
         
         let serialized = serde_json::to_string(&insert_ball_entity_in).expect("Failed to serialize");
 
-        assert_eq!(serialized, format!(r#"{{"is_fixed":true,"is_insert":true,"uuid":"{}","color":"red","position":{{"x":1.0,"y":2.0,"z":3.0}},"impulse":{{"x":1.0,"y":2.0,"z":3.0}}}}}}"#, uuid.to_string()));
+        assert_eq!(serialized, format!(r#"{{"is_fixed":true,"is_insert":true,"uuid":"{}","color":"red","position":{{"x":1.0,"y":2.0,"z":3.0}},"impulse":{{"x":1.0,"y":2.0,"z":3.0}}}}"#, uuid.to_string()));
 
         let insert_ball_entity_out: BallEntity = serde_json::from_str(&serialized).expect("Failed to deserialize");
 
