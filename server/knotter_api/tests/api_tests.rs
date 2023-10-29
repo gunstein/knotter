@@ -3,6 +3,7 @@ use reqwest::StatusCode;
 use std::process::Command;
 use tokio;
 use knotter_api::domain::dtos::insert_ball_response_dto::InsertBallResponseDto;
+use knotter_api::domain::dtos::get_ball_transactions_by_globeid_response_dto::GetBallTransactionsByGlobeIdResponseDto;
 
 const BASE_URL: &str = "http://127.0.0.1:8080";
 
@@ -79,7 +80,7 @@ async fn test_set_and_retrieve_data() {
     let client = reqwest::Client::new();
 
     // Create mock Transaction data
-    let globe_id = "some_unique_globe_id".to_string();
+    let globe_id = "a_globe_id".to_string();
     let json_data = serde_json::json!({
         "is_fixed": true,
         "is_insert": true,
@@ -108,19 +109,24 @@ async fn test_set_and_retrieve_data() {
         panic!("Received an error: {}", error_message);
     }
 
+    let insert_response_data: InsertBallResponseDto = resp.json().await.expect("Failed to deserialize response");
+    assert_eq!(insert_response_data.message, "Successfully inserted.".to_string());
+
     // Now, retrieve the data
-    let resp = client.get(&format!("{}/{globe_id}/{transaction_id}", BASE_URL, globe_id = globe_id, transaction_id = "0"))
+    let query_resp = client.get(&format!("{}/{globe_id}/{transaction_id}", BASE_URL, globe_id = globe_id, transaction_id = "0"))
         .send()
         .await
         .expect("Failed to send GET request");
 
-    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(query_resp.status(), StatusCode::OK);
 
     // Parse the response and compare to original data
-    let response_data: InsertBallResponseDto = resp.json().await.expect("Failed to deserialize response");
+    let query_response_data: GetBallTransactionsByGlobeIdResponseDto = query_resp.json().await.expect("Failed to deserialize response");
+    //let response_text = resp.text().await.expect("Failed to read response text");
+    //println!("Received JSON: {:?}", response_text);
+    //let response_data: InsertBallResponseDto = serde_json::from_str(&response_text).expect("Failed to deserialize response");
 
-    assert_eq!(response_data.message, "Successfully inserted.".to_string());
-    assert_eq!(response_data.globe_id, globe_id);
+    assert_eq!(query_response_data.ball_transactions.len(), 1);
     // If you want to check transaction_id, you might need a different approach 
     // since you're generating a timestamp, and it might not be easy to predict.
 

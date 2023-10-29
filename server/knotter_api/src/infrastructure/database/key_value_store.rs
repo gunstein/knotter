@@ -4,6 +4,7 @@ use redb::{Database, ReadableTable, TableDefinition};
 use crate::domain::errors::my_error::MyError;
 use uuid::Uuid;
 use crate::domain::models::ball_entity::BallEntity;
+use log::debug;
 
 pub const TABLE: TableDefinition<&str, &str> = TableDefinition::new("knotter_log");
 
@@ -65,6 +66,7 @@ impl KeyValueStore {
     }
 
     pub fn insert(&self, globe_id: &str, serialized_data: &str, timestamp: &str) -> Result<(), MyError> {
+        debug!("KeyValueStore insert START");
         let key = self.construct_key(globe_id, timestamp);
         let write_txn = self.db.begin_write()?;
         {
@@ -72,6 +74,7 @@ impl KeyValueStore {
             table.insert(&*key, serialized_data)?;
         }
         write_txn.commit()?;
+        debug!("KeyValueStore insert END");
         Ok(())
     }  
     
@@ -89,12 +92,20 @@ impl KeyValueStore {
     
         if test_db {
             // Try to delete the test database file
+            debug!("This is test_db so delete it, {}", db_filename);
             let _ = fs::remove_file(db_filename);
         }
     
         let db = Database::create(db_filename)
             .map_err(|e| MyError::DatabaseError(e.to_string()))?;
     
+        //Ensure table is created
+        let txn = db.begin_write().unwrap();
+        {
+            let _table = txn.open_table(TABLE).unwrap();
+        }
+        txn.commit().unwrap();
+
         Ok(Arc::new(db))
     }
 

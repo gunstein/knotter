@@ -52,8 +52,6 @@ impl ValidationService {
         let position = ball_entity.position.as_ref().ok_or_else(|| 
             MyError::ValidationError("Position is missing.".to_string())
         )?;
-        
-        //let ball = Ball::new(position);
     
         if !Globe::contains(&position) {
             return Err(MyError::ValidationError("Ball is not on surface of sphere.".to_string()));

@@ -29,7 +29,7 @@ pub async fn run_server(is_test_mode: bool) -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(key_value_store.clone()))
-            .app_data(validation_service.clone())
+            .app_data(web::Data::new(validation_service.clone()))
             .service(handle_insert)
             .service(delete_data)
             .service(healthcheck)

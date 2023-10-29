@@ -8,6 +8,7 @@ use crate::helpers::*;
 use actix_web::post;
 use crate::application::services::validation_service::ValidationService;
 use crate::infrastructure::database::key_value_store::KeyValueStore;
+use log::debug;
 
 #[post("/{globe_id}")]
 pub async fn handle_insert(
@@ -16,6 +17,7 @@ pub async fn handle_insert(
     data: web::Json<InsertBallDto>,
     validation_service: web::Data<Arc<ValidationService>>,
 ) -> Result<HttpResponse, MyError> {
+    debug!("handle_insert START. globe_id={}, data={:?}", globe_id, data);
     let globe_id = process_globe_id(&globe_id)?;
 
     let insert_ball_dto: InsertBallDto = data.into_inner();
