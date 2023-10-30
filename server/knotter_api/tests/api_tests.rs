@@ -122,15 +122,89 @@ async fn test_set_and_retrieve_data() {
 
     // Parse the response and compare to original data
     let query_response_data: GetBallTransactionsByGlobeIdResponseDto = query_resp.json().await.expect("Failed to deserialize response");
-    //let response_text = resp.text().await.expect("Failed to read response text");
-    //println!("Received JSON: {:?}", response_text);
-    //let response_data: InsertBallResponseDto = serde_json::from_str(&response_text).expect("Failed to deserialize response");
-
+ 
     assert_eq!(query_response_data.ball_transactions.len(), 1);
-    // If you want to check transaction_id, you might need a different approach 
-    // since you're generating a timestamp, and it might not be easy to predict.
+}
 
+#[tokio::test]
+async fn test_delete_data() {
+    // Start the service in a test mode (assuming you've set up the server to run in test mode with a command-line arg)
+    let server_process = Command::new("cargo")
+        .args(&["run", "--", "--test-mode"])
+        .spawn()
+        .expect("Failed to start the server");
 
-    // Optionally, terminate the server at the end of the test
-    //server.kill().expect("Failed to kill the server");
+    let server = TestServer { process: server_process };
+
+    wait_for_server_ready(&format!("{}/health", BASE_URL), 10).await.expect("Server not ready");
+
+    let client = reqwest::Client::new();
+
+    // Create mock Transaction data
+    let globe_id = "a_globe_id".to_string();
+    let uuid = "4d3cbd35-41e8-40be-96d2-ac0c4b9f4f26".to_string();
+    let json_data = serde_json::json!({
+        "is_fixed": true,
+        "is_insert": true,
+        "uuid": uuid,
+        "color": "#ff0000",
+        "position": {
+            "x": -1.05,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "velocity": serde_json::Value::Null
+    });
+    
+    println!("json_data: {:?}", json_data.to_string());
+
+    // Send POST request to set data
+    let resp = client.post(&format!("{}/{globe_id}", BASE_URL, globe_id = globe_id))
+        .json(&json_data)
+        .send()
+        .await
+        .expect("Failed to send POST request");
+
+    if resp.status() != StatusCode::OK {
+        // Extract error message from the response body
+        let error_message: String = resp.text().await.expect("Failed to read response text");
+        panic!("Received an error: {}", error_message);
+    }
+
+    let insert_response_data: InsertBallResponseDto = resp.json().await.expect("Failed to deserialize response");
+    assert_eq!(insert_response_data.message, "Successfully inserted.".to_string());
+
+    // retrieve the data
+    let query_resp = client.get(&format!("{}/{globe_id}/{transaction_id}", BASE_URL, globe_id = globe_id, transaction_id = "0"))
+        .send()
+        .await
+        .expect("Failed to send GET request");
+
+    assert_eq!(query_resp.status(), StatusCode::OK);
+
+    // Parse the response and compare to original data
+    let query_response_data: GetBallTransactionsByGlobeIdResponseDto = query_resp.json().await.expect("Failed to deserialize response");
+ 
+    assert_eq!(query_response_data.ball_transactions.len(), 1);
+
+    //delete object
+    let query_resp = client.delete(&format!("{}/{globe_id}/{uuid}", BASE_URL, globe_id = globe_id, uuid = uuid))
+        .send()
+        .await
+        .expect("Failed to send DELETE request");
+
+    assert_eq!(query_resp.status(), StatusCode::OK);
+
+    // retrieve the data
+    let query_resp = client.get(&format!("{}/{globe_id}/{transaction_id}", BASE_URL, globe_id = globe_id, transaction_id = "0"))
+        .send()
+        .await
+        .expect("Failed to send GET request");
+
+    assert_eq!(query_resp.status(), StatusCode::OK);
+
+    // Parse the response and compare to original data
+    let query_response_data: GetBallTransactionsByGlobeIdResponseDto = query_resp.json().await.expect("Failed to deserialize response");
+ 
+    assert_eq!(query_response_data.ball_transactions.len(), 2);    
 }

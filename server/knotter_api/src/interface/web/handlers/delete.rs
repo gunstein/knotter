@@ -7,6 +7,7 @@ use actix_web::delete;
 use crate::application::services::validation_service::ValidationService;
 use crate::infrastructure::database::key_value_store::KeyValueStore;
 use crate::domain::models::ball_entity::BallEntity;
+use log::debug;
 
 #[delete("/{globe_id}/{object_uuid}")]
 async fn delete_data(
@@ -14,6 +15,7 @@ async fn delete_data(
     key_value_store: web::Data<Arc<KeyValueStore>>,
 ) -> Result<HttpResponse, MyError> {
     let (globe_id, object_uuid) = path_info.into_inner();
+    debug!("delete_data START. globe_id={}, object_uuid={:?}", globe_id, object_uuid);
     let globe_id = process_globe_id(&globe_id)?;
 
     ValidationService::validate_delete(&object_uuid, &globe_id, key_value_store.as_ref().as_ref())?;
@@ -21,6 +23,7 @@ async fn delete_data(
     let delete_ball_entity = BallEntity::new(object_uuid, false);
     let serialized_data = serde_json::to_string(&delete_ball_entity)?; 
 
+    debug!("Before key_value_store.delete. globe_id={}, serialized_data={:?}", globe_id, serialized_data);
     key_value_store.delete(&globe_id, &serialized_data)?;
 
     let (_, nanoseconds_since_epoch) = KeyValueStore::generate_key(&globe_id);

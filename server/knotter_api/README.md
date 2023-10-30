@@ -73,3 +73,12 @@ http://127.0.0.1:8080/globe1
 
 
 RUST_LOG=debug cargo run
+RUST_LOG=debug cargo test test_set_and_retrieve_data
+
+cargo test -- --test-threads=1
+
+run only integration tests, they can't be run in paralell because of stop and restart of server.
+cargo test --tests -- --test-threads=1
+
+only run unit tests
+cargo test --lib
