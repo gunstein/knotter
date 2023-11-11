@@ -2,8 +2,6 @@ use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 //use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
-use bevy::input::mouse::{MouseButtonInput, MouseMotion};
-
 use globe::GlobePlugin;
 use ball::BallPlugin;
 use orbit_camera_controller::OrbitCameraControllerPlugin;
@@ -46,10 +44,12 @@ fn main() {
 
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
-enum AppState {
+pub enum AppState {
     #[default]
-    Upsert,
-    UpsertSetSpeed,
+    EditUpsert,
+    EditUpsertSetSpeed,
+    EditDelete,
+    View,
 }
 
 #[derive(Component)]
