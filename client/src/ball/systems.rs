@@ -330,3 +330,66 @@ pub fn finalize_upsert_ball_on_globe(
     next_state.set(AppState::EditUpsert);
 
 }
+
+
+pub fn edit_delete_ball(
+    mut commands: Commands,
+    cameras: Query<(&Camera, &GlobalTransform)>,
+    rapier_context: Res<RapierContext>,
+    mouse: Res<Input<MouseButton>>,
+    windows: Query<&mut Window>,
+    query_globe: Query<Entity, With<globe::Globe>>,
+) {
+    if !mouse.just_pressed(MouseButton::Left) {
+        return
+    }
+    
+    let window = windows.single();
+    let Some(cursor_position) = window.cursor_position() else { return; };
+
+    //Do raycast to check pointer is on globe
+    for (camera, camera_transform) in &cameras {
+        // First, compute a ray from the mouse position.
+        let Some(ray) = camera.viewport_to_world(camera_transform, cursor_position) else { return; };
+        //Only hit ball, ball is only member of CollisionGroup GROUP_2
+        let filter = QueryFilter {
+            groups: Some(
+                CollisionGroups {
+                    memberships: Group::GROUP_2,
+                    filters: (Group::GROUP_1 | Group::GROUP_2)
+                }
+            ),
+            ..default()
+        };
+
+        if let Some((entity, _)) = rapier_context.cast_ray(
+            ray.origin,
+            ray.direction,
+            f32::MAX,
+            true,
+            filter,
+        ){
+            let entity_globe = query_globe.single();
+            if entity_globe != entity {
+                //Despawn if not globe, then it should be a ball
+                commands.entity(entity).despawn();
+            }
+        }
+    }
+}
+
+pub fn handle_delete_state(
+    keyboard_input: Res<Input<KeyCode>>,
+    current_state: Res<State<AppState>>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
+    if keyboard_input.pressed(KeyCode::Delete) {
+        if *current_state == AppState::EditUpsert {
+            next_state.set(AppState::EditDelete);
+        }
+    } else {
+        if *current_state == AppState::EditDelete {
+            next_state.set(AppState::EditUpsert);
+        }
+    }
+}

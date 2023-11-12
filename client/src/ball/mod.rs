@@ -21,8 +21,11 @@ impl Plugin for BallPlugin {
             //.add_systems(Startup, spawn_moving_balls)
             .add_systems(Update, push_ball_against_globe)
             .add_systems(Update, handle_ball_collision)
+            .add_systems(Update, handle_delete_state.run_if(in_state(AppState::EditUpsert)))
+            .add_systems(Update, handle_delete_state.run_if(in_state(AppState::EditDelete)))
             .add_systems(Update, edit_upsert_ball_on_globe.run_if(in_state(AppState::EditUpsert)))
             .add_systems(Update, edit_upsert_set_speed.run_if(in_state(AppState::EditUpsertSetSpeed)))
-            .add_systems(Update, finalize_upsert_ball_on_globe.run_if(in_state(AppState::EditUpsertSetSpeed)));
+            .add_systems(Update, finalize_upsert_ball_on_globe.run_if(in_state(AppState::EditUpsertSetSpeed)))
+            .add_systems(Update, edit_delete_ball.run_if(in_state(AppState::EditDelete)));
     }
 }

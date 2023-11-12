@@ -125,7 +125,11 @@ impl KeyValueStore {
         let read_txn = self.db.begin_read()?;
         let table = read_txn.open_table(TABLE)?;
 
-        let start = format!("{}--", globe_id);
+        let mut start = format!("{}--", globe_id);
+        if transaction_id != "0" {
+            start = format!("{}{}", start, transaction_id);
+        }
+
         let end = format!("{}--{}", globe_id, "\u{10ffff}");
 
         let range = table.range::<&str>(start.as_str()..end.as_str())?;

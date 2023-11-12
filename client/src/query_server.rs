@@ -8,7 +8,7 @@ pub struct QueryServerPlugin;
 impl Plugin for QueryServerPlugin {
     fn build(&self, app: &mut App) {
         app
-        .add_plugins(ReqwestPlugin)
+        .add_plugins(ReqwestPlugin) 
         .add_event::<SendInsertBallEvent>()
         .add_event::<SendDeleteBallEvent>()
         //.add_plugins(LogPlugin::default())
