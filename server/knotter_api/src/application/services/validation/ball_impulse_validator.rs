@@ -2,9 +2,9 @@ use nalgebra::Vector3;
 use crate::domain::models::ball_entity::{PositionEntity, ImpulseEntity};
 use crate::domain::errors::my_error::MyError;
 
-const TOLERANCE: f64 = 1e-6;
-const MIN_IMPULSE_MAGNITUDE: f64 = 0.0; 
-const MAX_IMPULSE_MAGNITUDE: f64 = 1.0;
+const TOLERANCE: f32 = 1e-6;
+const MIN_IMPULSE_MAGNITUDE: f32 = 0.0; 
+const MAX_IMPULSE_MAGNITUDE: f32 = 1.0;
 
 pub fn validate_impulse_direction(position: &PositionEntity, impulse: &ImpulseEntity) -> Result<(), MyError> {
     let dir_from_center = position.to_vector3().normalize();

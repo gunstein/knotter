@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
+use uuid::Uuid;
 
 use super::BALL_RADIUS;
 use super::components::*;
@@ -31,7 +32,8 @@ pub fn spawn_static_ball(commands: &mut Commands,
             memberships: Group::GROUP_2,
             filters: (Group::GROUP_1 | Group::GROUP_2),
         },
-        StaticBall
+        StaticBall,
+        BallUuid(Uuid::new_v4())
     ));
 
     if upserted {
@@ -84,6 +86,7 @@ pub fn spawn_moving_ball(commands: &mut Commands,
         ActiveEvents::COLLISION_EVENTS,
         ReadMassProperties::default(),
         MovingBall,
+        BallUuid(Uuid::new_v4()),
     ));
 
     spawned_entity.insert(Speed(0.0));          

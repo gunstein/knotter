@@ -15,13 +15,13 @@ pub struct BallEntity {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct PositionEntity {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }
 
 impl PositionEntity {
-    pub fn distance_squared(&self, other: &PositionEntity) -> f64 {
+    pub fn distance_squared(&self, other: &PositionEntity) -> f32 {
         let dx = self.x - other.x;
         let dy = self.y - other.y;
         let dz = self.z - other.z;
@@ -29,21 +29,21 @@ impl PositionEntity {
     }
 
     // Conversion to nalgebra::Vector3<f64>
-    pub fn to_vector3(&self) -> Vector3<f64> {
+    pub fn to_vector3(&self) -> Vector3<f32> {
         Vector3::new(self.x, self.y, self.z)
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct ImpulseEntity {
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }
 
 impl ImpulseEntity {
     // Conversion to nalgebra::Vector3<f64>
-    pub fn to_vector3(&self) -> Vector3<f64> {
+    pub fn to_vector3(&self) -> Vector3<f32> {
         Vector3::new(self.x, self.y, self.z)
     }
 }

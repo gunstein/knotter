@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use uuid::Uuid;
 
 #[derive(Component, Default, Reflect)]
 #[reflect(Component)]
@@ -15,6 +16,9 @@ pub struct MovingBall;
 
 #[derive(Component)]
 pub struct Upserted;
+
+#[derive(Component)]
+pub struct BallUuid(pub Uuid);
 
 #[derive(Component)]
 pub struct CapsuleDepth(pub f32);

@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
+use uuid::Uuid;
 
 use super::BALL_RADIUS;
 use super::components::*;
@@ -7,6 +8,9 @@ use super::resources::*;
 use super::spawn::*;
 use crate::AppState;
 use crate::globe;
+use crate::query_server::BallDto;
+use crate::query_server::ImpulseDto;
+use crate::query_server::PositionDto;
 
 const SPEED_MARKER_MAX_LENGTH: f32 = 0.5;
 
@@ -252,9 +256,10 @@ pub fn finalize_upsert_ball_on_globe(
     rapier_context: Res<RapierContext>,
     mouse: Res<Input<MouseButton>>,
     windows: Query<&mut Window>,
-    mut query_upsert_ball: Query<(Entity, &Transform, &Handle<StandardMaterial>), With<Upserted>>,
+    mut query_upsert_ball: Query<(Entity, &Transform, &Handle<StandardMaterial>, &BallUuid), With<Upserted>>,
     query_speed_marker: Query<(Entity, &CapsuleDepth, &CapsuleRotation), With<SpeedMarker>>,
     mut next_state: ResMut<NextState<AppState>>,
+    mut send_insert_ball_events: EventWriter<crate::query_server::SendInsertBallEvent>,
 ) {
     if !mouse.just_released(MouseButton::Left) {
         return
@@ -311,20 +316,23 @@ pub fn finalize_upsert_ball_on_globe(
                  //let impulse = forward_direction * impulse_magnitude;
                  let impulse = forward_direction * impulse_magnitude;
 
-                 spawn_moving_ball(&mut commands, 
+                spawn_moving_ball(&mut commands, 
                     &ball_mesh_resource,
                     &ball_material_resource,
                     (ball_position.x, ball_position.y, ball_position.z),
                     impulse );
+                send_insert_ball_event(&mut send_insert_ball_events, upsert_ball.3.0, ball_position, Some(impulse));
             }
             else{
                 //Remove Upsert component on ball. The ball is then permanent static.
                 commands.entity(upsert_ball.0).remove::<Upserted>();
+                send_insert_ball_event(&mut send_insert_ball_events, upsert_ball.3.0, ball_position, None);
             }
         }
         else{
             //Mouse did not hit globe so ball will be fixed.
             commands.entity(upsert_ball.0).remove::<Upserted>();
+            send_insert_ball_event(&mut send_insert_ball_events, upsert_ball.3.0, upsert_ball.1.translation, None);
         }
     }
     next_state.set(AppState::EditUpsert);
@@ -339,6 +347,8 @@ pub fn edit_delete_ball(
     mouse: Res<Input<MouseButton>>,
     windows: Query<&mut Window>,
     query_globe: Query<Entity, With<globe::Globe>>,
+    mut send_delete_ball_events: EventWriter<crate::query_server::SendDeleteBallEvent>,
+    mut query_balls: Query<(Entity, &BallUuid)>,
 ) {
     if !mouse.just_pressed(MouseButton::Left) {
         return
@@ -373,6 +383,12 @@ pub fn edit_delete_ball(
             if entity_globe != entity {
                 //Despawn if not globe, then it should be a ball
                 commands.entity(entity).despawn();
+
+                for (entity_ball, uuid_ball) in query_balls.iter() {
+                    if entity == entity_ball {
+                        send_delete_ball_events.send(crate::query_server::SendDeleteBallEvent {uuid: uuid_ball.0});
+                    }
+                }  
             }
         }
     }
@@ -393,3 +409,32 @@ pub fn handle_delete_state(
         }
     }
 }
+
+fn send_insert_ball_event(
+    send_insert_ball_events: &mut EventWriter<crate::query_server::SendInsertBallEvent>,
+    ball_uuid: Uuid,
+    ball_position: Vec3,
+    ball_impulse: Option<Vec3>,
+) {
+    // is_fixed is true if ball_impulse is None, false otherwise
+    let is_fixed = ball_impulse.is_none();
+    send_insert_ball_events.send(crate::query_server::SendInsertBallEvent {
+        ball: BallDto {
+            is_fixed,
+            is_insert: true,
+            uuid: ball_uuid,
+            color: Some("#ff0000".to_string()),
+            position: Some(PositionDto {
+                x: ball_position.x,
+                y: ball_position.y,
+                z: ball_position.z,
+            }),
+            impulse: ball_impulse.map(|impulse| ImpulseDto { // Use map to convert Option<Vec3> to Option<ImpulseDto>
+                x: impulse.x,
+                y: impulse.y,
+                z: impulse.z,
+            }),
+        }
+    });
+}
+
