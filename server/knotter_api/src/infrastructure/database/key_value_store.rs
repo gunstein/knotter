@@ -137,6 +137,7 @@ impl KeyValueStore {
         let mut results: Vec<_>;
 
         if transaction_id == "0" {
+            //debug!("transaction_id == 0");
             results = range.collect();
         } else {
             results = range.rev().collect();
@@ -144,11 +145,13 @@ impl KeyValueStore {
             results.truncate(results.len() - 1); // Skip the first (now last) item
         }
 
+        //debug!("results length: {:?}", results.len());
         let mut response_data = Vec::new();
 
         for item in results {
             match item {
                 Ok((key, value)) => {
+                    //debug!("results item redb: {:?}", key.value().to_string());
                     response_data.push((key.value().to_string(), value.value().to_string()));
                 },
                 Err(err) => {

@@ -17,7 +17,7 @@ impl Globe {
     }
 }
 
-const MIN_DISTANCE: f32 = 1.05;
+const MIN_DISTANCE: f32 = 0.1;
 const MIN_DISTANCE_SQUARED: f32 = MIN_DISTANCE * MIN_DISTANCE;
 
 pub fn is_valid_distance_from_others(point: &PositionEntity, others: &Vec<&PositionEntity>) -> bool {

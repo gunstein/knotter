@@ -1,4 +1,5 @@
 use crate::domain::errors::my_error::MyError;
+use log::debug;
 use regex::Regex;
 use uuid::Uuid;
 use crate::infrastructure::database::key_value_store::KeyValueStoreTrait;
@@ -35,10 +36,11 @@ impl ValidationService {
         if ball_entity.is_fixed && ball_entity.impulse.is_some() {
             return Err(MyError::ValidationError("Velocity should be None for fixed objects.".to_string()));
         }
-    
+        //debug!("insert_ball_dto {:?}", insert_ball_dto);
+        debug!("validate 1" );
         // Retrieve all alive objects
         let map_alive_objects = key_value_store.get_alive_objects_map(globe_id)?;
-    
+        debug!("validate 2" );
         let mut vec_position_alive_fixed_objects: Vec<&PositionEntity> = Vec::new();
         for value in map_alive_objects.values() {
             if value.is_fixed {
@@ -47,26 +49,26 @@ impl ValidationService {
                 }
             }
         }
-    
+        debug!("validate 3" );
         // Check that the new object is on the surface of the sphere/globe
         let position = ball_entity.position.as_ref().ok_or_else(|| 
             MyError::ValidationError("Position is missing.".to_string())
         )?;
-    
+        debug!("validate 4" );
         if !Globe::contains(&position) {
             return Err(MyError::ValidationError("Ball is not on surface of sphere.".to_string()));
         }
-    
+        debug!("validate 5" );
         // Check the distance of the new ball from existing fixed balls
         if !is_valid_distance_from_others(position, &vec_position_alive_fixed_objects) {
             return Err(MyError::ValidationError("Ball is too close to other fixed objects.".to_string()));
         }
-    
+        debug!("validate 6" );
         // Check that UUID of new object is not among living objects.
         if map_alive_objects.contains_key(&ball_entity.uuid) {
             return Err(MyError::ValidationError("Object UUID is already in use.".to_string()));
         }
-    
+        debug!("validate 7" );
         // Validate color
         match &ball_entity.color {
             Some(color) => {
@@ -78,7 +80,7 @@ impl ValidationService {
                 return Err(MyError::ValidationError("Color is required for insertion.".to_string()));
             }
         }
-    
+        debug!("validate 8" );
         // Validate impulse direction and magnitude if the ball is not fixed
         if !ball_entity.is_fixed {
             if let Some(impulse) = &ball_entity.impulse {

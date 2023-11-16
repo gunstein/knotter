@@ -72,6 +72,22 @@ curl -X POST \
 http://127.0.0.1:8080/globe1
 
 
+curl -X POST \
+     -H "Content-Type: application/json" \
+     -d '{
+        "is_fixed": true,
+        "is_insert": true,
+        "uuid": "4d3cbd35-41e8-40be-96d2-ac0c4b9f4f27",
+        "color": "#ff0000",
+        "position": {
+            "x": 0.0,
+            "y": -1.05,
+            "z": 0.0
+        },
+        "velocity": null
+     }' \
+http://127.0.0.1:8080/globe1
+
 RUST_LOG=debug cargo run
 RUST_LOG=debug cargo test test_set_and_retrieve_data
 
@@ -82,3 +98,6 @@ cargo test --tests -- --test-threads=1
 
 only run unit tests
 cargo test --lib
+
+Ensure debug! is working
+RUST_LOG=debug cargo test test_deserialization_insertballdto -- --nocapture

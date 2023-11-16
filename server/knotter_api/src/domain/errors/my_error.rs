@@ -1,6 +1,7 @@
 use redb;
 use actix_web::{HttpResponse, ResponseError};
 use std::fmt;
+use log::debug;
 
 #[derive(Debug)]
 pub enum MyError {
@@ -52,6 +53,7 @@ impl fmt::Display for MyError {
 
 impl ResponseError for MyError {
     fn error_response(&self) -> HttpResponse {
+        debug!("Error occurred: {:?}", self);
         match *self {
             MyError::NotFound => HttpResponse::NotFound().finish(),
             MyError::DatabaseError(ref message) => HttpResponse::InternalServerError().json(message),
