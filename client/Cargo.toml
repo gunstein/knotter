@@ -12,6 +12,7 @@ opt-level = 1
 opt-level = 3
 
 [dependencies]
+shared = { path = "../shared" }
 rand = "0.8"
 bevy = "0.11"
 # bevy = {version = "0.11.2", features = ["dynamic"] }

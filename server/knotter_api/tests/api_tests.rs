@@ -2,8 +2,8 @@ use reqwest;
 use reqwest::StatusCode;
 use std::process::Command;
 use tokio;
-use knotter_api::domain::dtos::insert_ball_response_dto::InsertBallResponseDto;
-use knotter_api::domain::dtos::get_ball_transactions_by_globeid_response_dto::GetBallTransactionsByGlobeIdResponseDto;
+use shared::domain::dtos::insert_ball_response_dto::InsertBallResponseDto;
+use shared::domain::dtos::get_ball_transactions_by_globeid_response_dto::GetBallTransactionsByGlobeIdResponseDto;
 
 const BASE_URL: &str = "http://127.0.0.1:8080";
 

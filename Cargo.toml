@@ -2,5 +2,6 @@
 resolver = "2"
 members = [
     "client",
-    "server/knotter_api"
+    "server/knotter_api",
+    "shared"
 ]

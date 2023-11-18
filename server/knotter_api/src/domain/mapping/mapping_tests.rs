@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod tests {
     use uuid::Uuid;
-    use crate::domain::dtos::insert_ball_dto::InsertBallDto;
-    use crate::domain::dtos::impulse_dto::ImpulseDto;
-    use crate::domain::dtos::position_dto::PositionDto;
+    use shared::domain::dtos::insert_ball_dto::InsertBallDto;
+    use shared::domain::dtos::impulse_dto::ImpulseDto;
+    use shared::domain::dtos::position_dto::PositionDto;
     use crate::domain::mapping::ball_mapper::{dto_to_entity, entity_to_dto};
     use crate::domain::models::ball_entity::BallEntity;
 

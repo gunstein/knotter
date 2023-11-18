@@ -2,6 +2,9 @@ use bevy::{prelude::*, utils::Uuid};
 use bevy_mod_reqwest::{*, reqwest::Url};
 use reqwest::Body;
 use serde::{Serialize, Deserialize};
+use shared::domain::dtos::ball_dto::BallDto;
+use shared::domain::dtos::position_dto::PositionDto;
+use shared::domain::dtos::impulse_dto::ImpulseDto;
 
 pub struct QueryServerPlugin;
 
@@ -14,6 +17,7 @@ impl Plugin for QueryServerPlugin {
         //.add_plugins(LogPlugin::default())
         .add_systems(Update, (send_transactions_requests, handle_transactions_responses))
         .add_systems(Update, handle_insert_ball_responses)
+        .add_systems(Update, handle_delete_ball_responses)
         .add_systems(Update, (insert_ball_event_listener, delete_ball_event_listener))
         .insert_resource(ReqTimer(Timer::new(
             std::time::Duration::from_secs(2),//Check if server has new data every 2 seconds
@@ -22,31 +26,6 @@ impl Plugin for QueryServerPlugin {
         .insert_resource(LastReceivedTransaction("0".to_string()))
         ;
     }
-}
-
-
-#[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
-pub struct BallDto {
-    pub is_fixed: bool,
-    pub is_insert: bool,
-    pub uuid: Uuid,
-    pub color: Option<String>, 
-    pub position: Option<PositionDto>,
-    pub impulse: Option<ImpulseDto>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct PositionDto {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub struct ImpulseDto {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
 }
 
 #[derive(Event)]
@@ -62,9 +41,11 @@ pub struct SendDeleteBallEvent {
     pub uuid: Uuid,
 }
 
+#[derive(Component)]
+pub struct DeleteBallQuery;
+
 #[derive(Resource)]
 struct ReqTimer(pub Timer);
-
 
 #[derive(Component)]
 pub struct TransactionsQuery;
@@ -96,10 +77,10 @@ fn handle_insert_ball_responses(
     for (e, res) in results.iter() {
         match res.as_str() {
             Some(string) => {
-                bevy::log::info!("{string}");
+                bevy::log::info!("handle_insert_ball_responses: {string}");
             }
             None => {
-                bevy::log::error!("Received None instead of a string.");
+                bevy::log::error!("handle_insert_ball_responses: Received None instead of a string.");
             }
         }
 
@@ -117,6 +98,25 @@ fn delete_ball_event_listener(mut commands: Commands, mut events: EventReader<Se
             let req = ReqwestRequest::new(req);
             commands.spawn(req);
         }
+    }
+}
+
+fn handle_delete_ball_responses(
+    mut commands: Commands, 
+    results: Query<(Entity, &ReqwestBytesResult), With<InsertBallQuery>>
+) {
+    for (e, res) in results.iter() {
+        match res.as_str() {
+            Some(string) => {
+                bevy::log::info!("handle_delete_ball_responses: {string}");
+            }
+            None => {
+                bevy::log::error!("handle_delete_ball_responses: Received None instead of a string.");
+            }
+        }
+
+        // Done with this entity
+        commands.entity(e).despawn_recursive();
     }
 }
 
@@ -140,10 +140,19 @@ fn handle_transactions_responses(
     for (e, res) in results.iter() {
         match res.as_str() {
             Some(string) => {
-                bevy::log::info!("{string}");
+                bevy::log::info!("handle_transactions_responses: {string}");
+
+                //Deserialize to GetBallTransactionsByGlobeIdResponseDto
+
+                //Get last transcations received from response and update resource LastReceivedTransaction
+
+                //Make event of all the transactions and send
+
+            
+
             }
             None => {
-                bevy::log::error!("Received None instead of a string.");
+                bevy::log::error!("handle_transactions_responses: Received None instead of a string.");
             }
         }
 

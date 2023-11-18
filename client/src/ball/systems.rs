@@ -8,9 +8,9 @@ use super::resources::*;
 use super::spawn::*;
 use crate::AppState;
 use crate::globe;
-use crate::query_server::BallDto;
-use crate::query_server::ImpulseDto;
-use crate::query_server::PositionDto;
+use shared::domain::dtos::ball_dto::BallDto;
+use shared::domain::dtos::position_dto::PositionDto;
+use shared::domain::dtos::impulse_dto::ImpulseDto;
 
 const SPEED_MARKER_MAX_LENGTH: f32 = 0.5;
 

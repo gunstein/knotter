@@ -1,6 +1,6 @@
-use crate::domain::dtos::insert_ball_dto::InsertBallDto;
-use crate::domain::dtos::impulse_dto::ImpulseDto;
-use crate::domain::dtos::position_dto::PositionDto;
+use shared::domain::dtos::insert_ball_dto::InsertBallDto;
+use shared::domain::dtos::impulse_dto::ImpulseDto;
+use shared::domain::dtos::position_dto::PositionDto;
 use crate::domain::models::ball_entity::{BallEntity, PositionEntity, ImpulseEntity};
 
 pub fn dto_to_entity(dto: &InsertBallDto) -> BallEntity {

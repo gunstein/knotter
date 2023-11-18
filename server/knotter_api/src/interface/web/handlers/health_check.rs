@@ -1,6 +1,6 @@
 use actix_web::{HttpResponse, Responder};
 use actix_web::get;
-use crate::domain::dtos::health_response_dto::HealthResponse;
+use shared::domain::dtos::health_response_dto::HealthResponse;
 
 #[get("/health")]
 async fn healthcheck() -> impl Responder {
