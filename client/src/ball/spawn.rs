@@ -6,13 +6,18 @@ use super::BALL_RADIUS;
 use super::components::*;
 use super::resources::*;
 
-pub fn spawn_static_ball(commands: &mut Commands, 
+pub fn spawn_static_ball(
+    commands: &mut Commands, 
     ball_mesh_resource: &Res<HandleForBallMesh>,
     ball_material_resource: &Res<HandleForBallMaterial>,
     point_on_sphere: (f32, f32, f32),
-    upserted: bool) {
+    upserted: bool,
+    uuid: Option<Uuid>,
+) {
+    // Decide on the UUID to use: either the one provided, or generate a new one
+    let ball_uuid = uuid.unwrap_or_else(Uuid::new_v4);
 
-    //ball
+    // The rest of your function remains unchanged
     let mut spawned_entity = commands.spawn((
         PbrBundle {
             mesh: ball_mesh_resource.handle.clone(),
@@ -22,7 +27,6 @@ pub fn spawn_static_ball(commands: &mut Commands,
     ));
 
     spawned_entity.insert((
-        //TransformBundle::from(Transform::from_xyz([-1.0, 1.0][rng.gen_range(0..2)] *rng.gen_range(1.0..2.0), [-1.0, 1.0][rng.gen_range(0..2)] * rng.gen_range(1.0..2.0), [-1.0, 1.0][rng.gen_range(0..2)] * rng.gen_range(1.0..2.0))),
         TransformBundle::from(Transform::from_xyz(point_on_sphere.0, point_on_sphere.1, point_on_sphere.2)),
         Collider::ball(BALL_RADIUS),
         Friction::coefficient(0.0),
@@ -33,19 +37,23 @@ pub fn spawn_static_ball(commands: &mut Commands,
             filters: (Group::GROUP_1 | Group::GROUP_2),
         },
         StaticBall,
-        BallUuid(Uuid::new_v4())
+        BallUuid(ball_uuid)  // Use the decided UUID
     ));
 
     if upserted {
         spawned_entity.insert(Upserted);
-    }              
+    }   
 }
 
 pub fn spawn_moving_ball(commands: &mut Commands, 
     ball_mesh_resource: &Res<HandleForBallMesh>,
     ball_material_resource: &Res<HandleForBallMaterial>,
     point_on_sphere: (f32, f32, f32),
-    impulse: Vec3 ) {
+    impulse: Vec3,
+    uuid: Option<Uuid>,
+ ) {
+    // Decide on the UUID to use: either the one provided, or generate a new one
+    let ball_uuid = uuid.unwrap_or_else(Uuid::new_v4);
 
     //ball
     let mut spawned_entity = commands.spawn(
@@ -86,7 +94,7 @@ pub fn spawn_moving_ball(commands: &mut Commands,
         ActiveEvents::COLLISION_EVENTS,
         ReadMassProperties::default(),
         MovingBall,
-        BallUuid(Uuid::new_v4()),
+        BallUuid(ball_uuid),
     ));
 
     spawned_entity.insert(Speed(0.0));          

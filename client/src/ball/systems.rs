@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
+use shared::domain::dtos::ball_transaction_dto::BallTransactionDto;
 use uuid::Uuid;
 
 use super::BALL_RADIUS;
@@ -11,6 +12,7 @@ use crate::globe;
 use shared::domain::dtos::ball_dto::BallDto;
 use shared::domain::dtos::position_dto::PositionDto;
 use shared::domain::dtos::impulse_dto::ImpulseDto;
+use bevy_mod_reqwest::{*, reqwest::Url};
 
 const SPEED_MARKER_MAX_LENGTH: f32 = 0.5;
 
@@ -129,7 +131,8 @@ pub fn edit_upsert_ball_on_globe(
                         &ball_mesh_resource,
                         &ball_material_resource,
                         (hit_point.x, hit_point.y, hit_point.z),
-                        true
+                        true,
+                        None
                     );
                 }
             }
@@ -320,7 +323,8 @@ pub fn finalize_upsert_ball_on_globe(
                     &ball_mesh_resource,
                     &ball_material_resource,
                     (ball_position.x, ball_position.y, ball_position.z),
-                    impulse );
+                    impulse,
+                    None );
                 send_insert_ball_event(&mut send_insert_ball_events, upsert_ball.3.0, ball_position, Some(impulse));
             }
             else{
@@ -348,7 +352,7 @@ pub fn edit_delete_ball(
     windows: Query<&mut Window>,
     query_globe: Query<Entity, With<globe::Globe>>,
     mut send_delete_ball_events: EventWriter<crate::query_server::SendDeleteBallEvent>,
-    mut query_balls: Query<(Entity, &BallUuid)>,
+    query_balls: Query<(Entity, &BallUuid)>,
 ) {
     if !mouse.just_pressed(MouseButton::Left) {
         return
@@ -438,3 +442,74 @@ fn send_insert_ball_event(
     });
 }
 
+pub fn receive_ball_transactions_event_listener(
+    mut commands: Commands, 
+    mut events: EventReader<crate::query_server::ReceiveBallTransactionsEvent>, 
+    ball_mesh_resource: Res<HandleForBallMesh>,
+    ball_material_resource: Res<HandleForBallMaterial>,
+    query_balls: Query<(Entity, &BallUuid)>
+) {
+    for event in events.iter() {
+        for ball_transaction in &event.ball_transactions.ball_transactions {
+            if ball_transaction.ball_dto.is_insert {
+                handle_insert_ball_transaction(
+                    &mut commands,
+                    &ball_mesh_resource,
+                    &ball_material_resource,
+                    ball_transaction,
+                );
+            }
+            else{
+                for (entity_ball, uuid_ball) in query_balls.iter() {
+                    if uuid_ball.0 == ball_transaction.ball_dto.uuid {
+                        //despawn for now, but this must change when viewing historic data.
+                        commands.entity(entity_ball).despawn();
+                    }
+                }                  
+            }
+        }
+    }
+}
+
+fn handle_insert_ball_transaction(
+    commands: &mut Commands,
+    ball_mesh_resource: &Res<HandleForBallMesh>,
+    ball_material_resource: &Res<HandleForBallMaterial>,
+    ball_transaction: &BallTransactionDto,
+) {
+    let position = match &ball_transaction.ball_dto.position {
+        Some(pos) => pos,
+        None => {
+            // Log error or handle the case of missing position
+            return;
+        },
+    };
+
+    if ball_transaction.ball_dto.is_fixed {
+        spawn_static_ball(
+            commands, 
+            ball_mesh_resource,
+            ball_material_resource,
+            (position.x, position.y, position.z),
+            false,
+            Some(ball_transaction.ball_dto.uuid)
+        );
+    } else {
+        let impulse = match &ball_transaction.ball_dto.impulse {
+            Some(imp) => imp,
+            None => {
+                // Log error or handle the case of missing impulse
+                return;
+            },
+        };
+
+        spawn_moving_ball(
+            commands, 
+            ball_mesh_resource,
+            ball_material_resource,
+            (position.x, position.y, position.z),
+            Vec3::new(impulse.x, impulse.y, impulse.z),
+            Some(ball_transaction.ball_dto.uuid)
+        );
+    }
+}

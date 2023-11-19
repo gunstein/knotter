@@ -3,6 +3,7 @@ use bevy_mod_reqwest::{*, reqwest::Url};
 use reqwest::Body;
 use serde::{Serialize, Deserialize};
 use shared::domain::dtos::ball_dto::BallDto;
+use shared::domain::dtos::get_ball_transactions_by_globeid_response_dto::GetBallTransactionsByGlobeIdResponseDto;
 use shared::domain::dtos::position_dto::PositionDto;
 use shared::domain::dtos::impulse_dto::ImpulseDto;
 
@@ -14,8 +15,10 @@ impl Plugin for QueryServerPlugin {
         .add_plugins(ReqwestPlugin) 
         .add_event::<SendInsertBallEvent>()
         .add_event::<SendDeleteBallEvent>()
+        .add_event::<ReceiveBallTransactionsEvent>()
         //.add_plugins(LogPlugin::default())
-        .add_systems(Update, (send_transactions_requests, handle_transactions_responses))
+        .add_systems(Update, send_transactions_requests)
+        .add_systems(Update, handle_transactions_responses)
         .add_systems(Update, handle_insert_ball_responses)
         .add_systems(Update, handle_delete_ball_responses)
         .add_systems(Update, (insert_ball_event_listener, delete_ball_event_listener))
@@ -52,6 +55,11 @@ pub struct TransactionsQuery;
 
 #[derive(Resource)]
 pub struct LastReceivedTransaction(pub String);
+
+#[derive(Event)]
+pub struct ReceiveBallTransactionsEvent {
+    pub ball_transactions: GetBallTransactionsByGlobeIdResponseDto,
+}
 
 fn insert_ball_event_listener(mut commands: Commands, mut events: EventReader<SendInsertBallEvent>, reqwest: Res<ReqwestClient>) {
     for event in events.iter() {
@@ -135,21 +143,38 @@ fn send_transactions_requests(mut commands: Commands, time: Res<Time>, mut timer
 
 fn handle_transactions_responses(
     mut commands: Commands, 
-    results: Query<(Entity, &ReqwestBytesResult), With<TransactionsQuery>>
+    results: Query<(Entity, &ReqwestBytesResult), With<TransactionsQuery>>,
+    mut last_received_transaction: ResMut<LastReceivedTransaction>,
+    mut send_receive_ball_transactions_events: EventWriter<ReceiveBallTransactionsEvent>,
 ) {
     for (e, res) in results.iter() {
         match res.as_str() {
             Some(string) => {
                 bevy::log::info!("handle_transactions_responses: {string}");
 
-                //Deserialize to GetBallTransactionsByGlobeIdResponseDto
+                // Deserialize to GetBallTransactionsByGlobeIdResponseDto
+                match serde_json::from_str::<GetBallTransactionsByGlobeIdResponseDto>(&string) {
+                    Ok(deserialized) => {
+                        // Successfully deserialized, use `deserialized` here
+                        bevy::log::info!("Deserialized response: {:?}", deserialized);
 
-                //Get last transcations received from response and update resource LastReceivedTransaction
+                        // Get last transactions received from response and update resource LastReceivedTransaction
+                        match deserialized.ball_transactions.last() {
+                            Some(last_element) => {
+                                last_received_transaction.0 = last_element.transaction_id.to_string();
+                            }
+                            None => bevy::log::info!("handle_transactions_responses: The vector is empty"),
+                        }
 
-                //Make event of all the transactions and send
-
-            
-
+                        // Make event and send
+                        send_receive_ball_transactions_events.send(ReceiveBallTransactionsEvent {
+                            ball_transactions: deserialized,
+                        });
+                    }
+                    Err(err) => {
+                        bevy::log::error!("Failed to deserialize: {}", err);
+                    }
+                }
             }
             None => {
                 bevy::log::error!("handle_transactions_responses: Received None instead of a string.");
@@ -160,3 +185,4 @@ fn handle_transactions_responses(
         commands.entity(e).despawn_recursive();
     }
 }
+

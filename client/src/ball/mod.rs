@@ -26,6 +26,8 @@ impl Plugin for BallPlugin {
             .add_systems(Update, edit_upsert_ball_on_globe.run_if(in_state(AppState::EditUpsert)))
             .add_systems(Update, edit_upsert_set_speed.run_if(in_state(AppState::EditUpsertSetSpeed)))
             .add_systems(Update, finalize_upsert_ball_on_globe.run_if(in_state(AppState::EditUpsertSetSpeed)))
-            .add_systems(Update, edit_delete_ball.run_if(in_state(AppState::EditDelete)));
+            .add_systems(Update, edit_delete_ball.run_if(in_state(AppState::EditDelete)))
+            .add_systems(Update, receive_ball_transactions_event_listener);
+        
     }
 }
