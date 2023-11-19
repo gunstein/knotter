@@ -13,6 +13,7 @@ use shared::domain::dtos::ball_dto::BallDto;
 use shared::domain::dtos::position_dto::PositionDto;
 use shared::domain::dtos::impulse_dto::ImpulseDto;
 use bevy_mod_reqwest::{*, reqwest::Url};
+use std::collections::HashSet;
 
 const SPEED_MARKER_MAX_LENGTH: f32 = 0.5;
 
@@ -324,7 +325,7 @@ pub fn finalize_upsert_ball_on_globe(
                     &ball_material_resource,
                     (ball_position.x, ball_position.y, ball_position.z),
                     impulse,
-                    None );
+                    Some(upsert_ball.3.0) );
                 send_insert_ball_event(&mut send_insert_ball_events, upsert_ball.3.0, ball_position, Some(impulse));
             }
             else{
@@ -450,26 +451,55 @@ pub fn receive_ball_transactions_event_listener(
     query_balls: Query<(Entity, &BallUuid)>
 ) {
     for event in events.iter() {
+        let mut balls_to_insert = HashSet::new();
+        let mut balls_to_delete = HashSet::new();
+
+        // First pass: Determine which balls to insert and delete
         for ball_transaction in &event.ball_transactions.ball_transactions {
+            let uuid = ball_transaction.ball_dto.uuid;
             if ball_transaction.ball_dto.is_insert {
-                handle_insert_ball_transaction(
-                    &mut commands,
-                    &ball_mesh_resource,
-                    &ball_material_resource,
-                    ball_transaction,
-                );
+                balls_to_insert.insert(uuid);
+            } else {
+                balls_to_insert.remove(&uuid);
+                balls_to_delete.insert(uuid);
             }
-            else{
-                for (entity_ball, uuid_ball) in query_balls.iter() {
-                    if uuid_ball.0 == ball_transaction.ball_dto.uuid {
-                        //despawn for now, but this must change when viewing historic data.
-                        commands.entity(entity_ball).despawn();
-                    }
-                }                  
+        }
+
+        // Second pass: Handle insertions
+        for uuid in balls_to_insert {
+            // Check if a ball with this UUID already exists
+            let uuid_strings: Vec<String> = query_balls.iter()
+            .map(|(_, ball_uuid)| ball_uuid.0.to_string())
+            .collect();
+            bevy::log::info!("Collected UUIDs: {:?}", uuid_strings);
+            let ball_already_exists = query_balls.iter().any(|(_, uuid_ball)| uuid_ball.0 == uuid);
+
+            if !ball_already_exists {
+                // Find the first transaction with the matching UUID
+                // This line searches through all transactions in the current event
+                // for the first one where the transaction's UUID matches the UUID in the balls_to_insert set.
+                // 'if let Some(ball_transaction)' is used to safely handle the case where
+                // such a transaction is found (Some) or not found (None).
+                if let Some(ball_transaction) = event.ball_transactions.ball_transactions.iter().find(|bt| bt.ball_dto.uuid == uuid) {
+                    handle_insert_ball_transaction(
+                        &mut commands,
+                        &ball_mesh_resource,
+                        &ball_material_resource,
+                        ball_transaction,
+                    );
+                }
+            }
+        }
+
+        // Handle deletions
+        for uuid in balls_to_delete {
+            if let Some((entity_ball, _)) = query_balls.iter().find(|(_, uuid_ball)| uuid_ball.0 == uuid) {
+                commands.entity(entity_ball).despawn();
             }
         }
     }
 }
+
 
 fn handle_insert_ball_transaction(
     commands: &mut Commands,
@@ -481,6 +511,7 @@ fn handle_insert_ball_transaction(
         Some(pos) => pos,
         None => {
             // Log error or handle the case of missing position
+            bevy::log::error!("Missing position! Not good.");
             return;
         },
     };
@@ -498,7 +529,7 @@ fn handle_insert_ball_transaction(
         let impulse = match &ball_transaction.ball_dto.impulse {
             Some(imp) => imp,
             None => {
-                // Log error or handle the case of missing impulse
+                bevy::log::error!("Missing impulse! Not good on a moving ball.");
                 return;
             },
         };

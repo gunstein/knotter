@@ -32,7 +32,7 @@ impl KeyValueStoreTrait for KeyValueStore {
             match item {
                 Ok((_key, value)) => {
                     let data = Self::parse_json(value.value())?;
-                    if data.is_insert && data.is_fixed {
+                    if data.is_insert {
                         map_alive_objects.insert(data.uuid, data);
                     } else {
                         map_alive_objects.remove(&data.uuid);
@@ -141,8 +141,8 @@ impl KeyValueStore {
             results = range.collect();
         } else {
             results = range.rev().collect();
-            results.reverse(); // To make the order correct
             results.truncate(results.len() - 1); // Skip the first (now last) item
+            results.reverse(); // To make the order correct
         }
 
         //debug!("results length: {:?}", results.len());

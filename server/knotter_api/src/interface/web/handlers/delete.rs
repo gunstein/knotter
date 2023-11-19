@@ -26,7 +26,5 @@ async fn delete_data(
     debug!("Before key_value_store.delete. globe_id={}, serialized_data={:?}", globe_id, serialized_data);
     key_value_store.delete(&globe_id, &serialized_data)?;
 
-    let (_, nanoseconds_since_epoch) = KeyValueStore::generate_key(&globe_id);
-
-    Ok(HttpResponse::Ok().body(format!("Successfully deleted: Globe ID: {}, Object_uuid: {}, New Transaction ID: {}", globe_id, object_uuid, nanoseconds_since_epoch)))
+    Ok(HttpResponse::Ok().body(format!("Successfully deleted: Globe ID: {}, Object_uuid: {}", globe_id, object_uuid)))
 }

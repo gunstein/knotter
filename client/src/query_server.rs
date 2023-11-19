@@ -104,14 +104,14 @@ fn delete_ball_event_listener(mut commands: Commands, mut events: EventReader<Se
             let req = reqwest.0.delete(url).build().unwrap();
     
             let req = ReqwestRequest::new(req);
-            commands.spawn(req);
+            commands.spawn(req).insert(DeleteBallQuery);
         }
     }
 }
 
 fn handle_delete_ball_responses(
     mut commands: Commands, 
-    results: Query<(Entity, &ReqwestBytesResult), With<InsertBallQuery>>
+    results: Query<(Entity, &ReqwestBytesResult), With<DeleteBallQuery>>
 ) {
     for (e, res) in results.iter() {
         match res.as_str() {
@@ -157,19 +157,20 @@ fn handle_transactions_responses(
                     Ok(deserialized) => {
                         // Successfully deserialized, use `deserialized` here
                         bevy::log::info!("Deserialized response: {:?}", deserialized);
-
-                        // Get last transactions received from response and update resource LastReceivedTransaction
-                        match deserialized.ball_transactions.last() {
-                            Some(last_element) => {
-                                last_received_transaction.0 = last_element.transaction_id.to_string();
+                        if deserialized.ball_transactions.len() > 0 {
+                            // Get last transactions received from response and update resource LastReceivedTransaction
+                            match deserialized.ball_transactions.last() {
+                                Some(last_element) => {
+                                    last_received_transaction.0 = last_element.transaction_id.to_string();
+                                }
+                                None => bevy::log::info!("handle_transactions_responses: The vector is empty"),
                             }
-                            None => bevy::log::info!("handle_transactions_responses: The vector is empty"),
-                        }
 
-                        // Make event and send
-                        send_receive_ball_transactions_events.send(ReceiveBallTransactionsEvent {
-                            ball_transactions: deserialized,
-                        });
+                            // Make event and send
+                            send_receive_ball_transactions_events.send(ReceiveBallTransactionsEvent {
+                                ball_transactions: deserialized,
+                            });
+                        }
                     }
                     Err(err) => {
                         bevy::log::error!("Failed to deserialize: {}", err);
