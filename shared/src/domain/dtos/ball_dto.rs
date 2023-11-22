@@ -3,7 +3,7 @@ use uuid::Uuid;
 use crate::domain::dtos::impulse_dto::ImpulseDto;
 use crate::domain::dtos::position_dto::PositionDto;
 
-#[derive(Serialize, Deserialize, Debug, Default, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq, Clone)]
 pub struct BallDto {
     pub is_fixed: bool,
     pub is_insert: bool,
