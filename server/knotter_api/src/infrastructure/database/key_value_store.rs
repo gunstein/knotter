@@ -124,34 +124,29 @@ impl KeyValueStore {
     pub fn get_data(&self, globe_id: &str, transaction_id: &str) -> Result<Vec<(String, String)>, MyError> {
         let read_txn = self.db.begin_read()?;
         let table = read_txn.open_table(TABLE)?;
-
+    
         let mut start = format!("{}--", globe_id);
         if transaction_id != "0" {
             start = format!("{}{}", start, transaction_id);
         }
-
+    
         let end = format!("{}--{}", globe_id, "\u{10ffff}");
-
+    
         let range = table.range::<&str>(start.as_str()..end.as_str())?;
-
-        let mut results: Vec<_>;
-
-        if transaction_id == "0" {
-            //debug!("transaction_id == 0");
-            results = range.collect();
+    
+        let results: Vec<_> = if transaction_id == "0" {
+            // Collect only the first ten rows
+            range.take(10).collect()
         } else {
-            results = range.rev().collect();
-            results.truncate(results.len() - 1); // Skip the first (now last) item
-            results.reverse(); // To make the order correct
-        }
-
-        //debug!("results length: {:?}", results.len());
+            // skip the first row, and then collect ten rows
+            range.skip(1).take(10).collect()
+        };
+    
         let mut response_data = Vec::new();
-
+    
         for item in results {
             match item {
                 Ok((key, value)) => {
-                    //debug!("results item redb: {:?}", key.value().to_string());
                     response_data.push((key.value().to_string(), value.value().to_string()));
                 },
                 Err(err) => {
@@ -159,8 +154,8 @@ impl KeyValueStore {
                 }
             }
         }
-
+    
         Ok(response_data)
     }
-
+    
 }

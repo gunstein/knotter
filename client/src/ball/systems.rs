@@ -469,49 +469,54 @@ pub fn receive_ball_transactions_event_listener(
 
         // Second pass: Handle insertions
         let mut inserted_positions: Vec<Vec3> = Vec::new();  // Track positions of inserted balls in this event
-        //go through all uuids to insert from first pass. 
+        let min_distance = 0.1; // Set your minimum distance
+
         for uuid in balls_to_insert {
             // Check if a ball with this UUID already exists
-            let ball_already_exists = query_balls.iter().any(|(_, uuid_ball,_)| uuid_ball.0 == uuid);
-        
+            let ball_already_exists = query_balls.iter().any(|(_, uuid_ball, _)| uuid_ball.0 == uuid);
+
             if !ball_already_exists {
-                // Find the first transaction with the matching UUID
                 if let Some(ball_transaction) = event.ball_transactions.ball_transactions.iter().find(|bt| bt.ball_dto.uuid == uuid) {
                     let is_moving_ball = !ball_transaction.ball_dto.is_fixed;
 
-                    let position = match &ball_transaction.ball_dto.position {
-                        Some(pos) => pos,
-                        None => continue, // or handle error
-                    };
-        
-                    // Check if the position is too close to other balls and adjust if necessary
-                    let min_distance = 0.1; // Set your minimum distance
-                    let mut temp_position = Vec3::new(position.x, position.y, position.z);
-                    if is_moving_ball {
-                        while query_balls.iter().any(|(_, _, transform)| transform.translation.distance(temp_position) < min_distance)
-                            || inserted_positions.iter().any(|&pos| pos.distance(temp_position) < min_distance) {
-                                temp_position = generate_valid_position(&query_balls, &inserted_positions, min_distance);
+                    let temp_position = match &ball_transaction.ball_dto.position {
+                        Some(pos) => {
+                            let mut temp_pos = Vec3::new(pos.x, pos.y, pos.z);
+                            if is_moving_ball {
+                                while query_balls.iter().any(|(_, _, transform)| transform.translation.distance(temp_pos) < min_distance)
+                                    || inserted_positions.iter().any(|&existing_pos| existing_pos.distance(temp_pos) < min_distance) {
+                                        temp_pos = generate_valid_position(&query_balls, &inserted_positions, min_distance);
+                                }
+                            }
+                            temp_pos
+                        },
+                        None => {
+                            bevy::log::error!("Received ball transaction without position. UUID: {}", uuid);
+                            continue; // Skip this transaction as it has no position
                         }
-                    }
-                    //update position with temp_position
+                    };
+
+                    // Create new ball transaction with updated position
                     let mut new_ball_transaction = ball_transaction.clone();
                     new_ball_transaction.ball_dto.position = Some(PositionDto {
                         x: temp_position.x,
                         y: temp_position.y,
                         z: temp_position.z,
                     });
+
                     handle_insert_ball_transaction(
                         &mut commands,
                         &ball_mesh_resource,
                         &ball_material_resource,
                         &new_ball_transaction,
                     );
-        
+
                     // Add the position to the set of inserted positions
                     inserted_positions.push(temp_position);
                 }
             }
         }
+
         // Handle deletions
         for uuid in balls_to_delete {
             if let Some((entity_ball, _, _)) = query_balls.iter().find(|(_, uuid_ball, _)| uuid_ball.0 == uuid) {
@@ -572,30 +577,18 @@ fn generate_valid_position(
     inserted_positions: &[Vec3],
     min_distance: f32,
 ) -> Vec3 {
+    //bevy::log::info!("generate_valid_position START.");
     let mut rng = rand::thread_rng();
     loop {
-        // Generate a random point on the globe
+        //bevy::log::info!("generate_valid_position loop start.");
         let new_position = Vec3::new(
             rng.gen_range(-1.0..1.0),
             rng.gen_range(-1.0..1.0),
             rng.gen_range(-1.0..1.0),
         ).normalize(); // Ensure the point is on the surface of the globe
 
-        // Check distance to existing balls
-        let mut too_close = false;
-        for (_, _, transform) in query_balls.iter() {
-            if transform.translation.distance(new_position) < min_distance {
-                too_close = true;
-                break;
-            }
-        }
-
-        for &pos in inserted_positions {
-            if pos.distance(new_position) < min_distance {
-                too_close = true;
-                break;
-            }
-        }
+        let too_close = query_balls.iter().any(|(_, _, transform)| transform.translation.distance(new_position) < min_distance)
+                          || inserted_positions.iter().any(|&pos| pos.distance(new_position) < min_distance);
 
         if !too_close {
             return new_position;
