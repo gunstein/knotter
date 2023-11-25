@@ -12,7 +12,6 @@ use crate::globe;
 use shared::domain::dtos::ball_dto::BallDto;
 use shared::domain::dtos::position_dto::PositionDto;
 use shared::domain::dtos::impulse_dto::ImpulseDto;
-use bevy_mod_reqwest::{*, reqwest::Url};
 use std::collections::HashSet;
 use bevy::math::Vec3;
 use rand::Rng;
@@ -44,7 +43,7 @@ pub fn push_ball_against_globe(
     let gravity = 9.8;
 
     for (mut ball_force, ball_transform, ball_mass_props) in query_balls.iter_mut() {
-        let force = gravity * ball_mass_props.0.mass;
+        let force = gravity * ball_mass_props.mass;
         let force_unit_vec = (globe_pos.0 - ball_transform.translation).normalize();
 
         //println!("force_unit_vec {:?} ", force_unit_vec);
@@ -125,6 +124,7 @@ pub fn edit_upsert_ball_on_globe(
             ray.direction,
             &ball_shape,
             f32::MAX,
+            true,
             QueryFilter::default(),
         ){
             for entity_globe in query_globe.iter() {

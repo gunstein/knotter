@@ -1,12 +1,7 @@
 use bevy::{prelude::*, utils::Uuid};
 use bevy_mod_reqwest::{*, reqwest::Url};
-use reqwest::Body;
-use serde::{Serialize, Deserialize};
 use shared::domain::dtos::ball_dto::BallDto;
 use shared::domain::dtos::get_ball_transactions_by_globeid_response_dto::GetBallTransactionsByGlobeIdResponseDto;
-use shared::domain::dtos::position_dto::PositionDto;
-use shared::domain::dtos::impulse_dto::ImpulseDto;
-
 pub struct QueryServerPlugin;
 
 impl Plugin for QueryServerPlugin {
@@ -60,6 +55,7 @@ pub struct LastReceivedTransaction(pub String);
 pub struct ReceiveBallTransactionsEvent {
     pub ball_transactions: GetBallTransactionsByGlobeIdResponseDto,
 }
+
 
 fn insert_ball_event_listener(mut commands: Commands, mut events: EventReader<SendInsertBallEvent>, reqwest: Res<ReqwestClient>) {
     for event in events.iter() {

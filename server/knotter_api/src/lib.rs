@@ -8,7 +8,7 @@ mod helpers;
 // src/lib.rs
 
 // ... existing module declarations ...
-
+use actix_cors::Cors;
 use actix_web::{web, App, HttpServer};
 use std::env;
 use std::sync::Arc;
@@ -28,7 +28,9 @@ pub async fn run_server(is_test_mode: bool) -> std::io::Result<()> {
     let validation_service = Arc::new(ValidationService::new());
 
     HttpServer::new(move || {
+        let cors = Cors::permissive();
         App::new()
+            .wrap(cors)
             .app_data(web::Data::new(key_value_store.clone()))
             .app_data(web::Data::new(validation_service.clone()))
             .service(handle_insert)

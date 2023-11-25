@@ -6,6 +6,7 @@ use globe::GlobePlugin;
 use ball::BallPlugin;
 use orbit_camera_controller::OrbitCameraControllerPlugin;
 use query_server::QueryServerPlugin;
+//use bevy_wasm_window_resize::WindowResizePlugin;
 
 use std::f32::consts::PI;
 
@@ -29,6 +30,7 @@ fn main() {
         .add_plugins(BallPlugin)
         .add_plugins(OrbitCameraControllerPlugin)
         .add_plugins(QueryServerPlugin)
+        //.add_plugin(WindowResizePlugin)
         //.add_plugins(RapierDebugRenderPlugin::default())
         .add_systems(Startup, setup_graphics)
         .add_systems(Startup, setup_physics)
