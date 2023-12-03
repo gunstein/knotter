@@ -39,7 +39,8 @@ pub async fn run_server(is_test_mode: bool) -> std::io::Result<()> {
             .service(healthcheck)
             .service(get_data_by_globe_id)
     })
-    .bind("127.0.0.1:8080")?
+    //.bind("127.0.0.1:8080")?
+    .bind("0.0.0.0:8080")?
     .run()
     .await
 }

@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, window::PresentMode};
 use bevy_rapier3d::prelude::*;
 //use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
@@ -6,6 +6,7 @@ use globe::GlobePlugin;
 use ball::BallPlugin;
 use orbit_camera_controller::OrbitCameraControllerPlugin;
 use query_server::QueryServerPlugin;
+use ui::GridMenuPlugin;
 //use bevy_wasm_window_resize::WindowResizePlugin;
 
 use std::f32::consts::PI;
@@ -14,6 +15,7 @@ mod globe;
 mod ball;
 mod query_server;
 mod orbit_camera_controller;
+mod ui;
 
 fn main() {
     App::new()
@@ -24,13 +26,24 @@ fn main() {
         )))
         .add_state::<AppState>()
         //.insert_resource(WinitSettings::desktop_app())
-        .add_plugins(DefaultPlugins)
+        .add_plugins(
+            DefaultPlugins.set(
+                WindowPlugin {
+                    primary_window: Some(Window {
+                        fit_canvas_to_parent: true,
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }
+            )
+        )
         .add_plugins(RapierPhysicsPlugin::<NoUserData>::default())
         .add_plugins(GlobePlugin)
         .add_plugins(BallPlugin)
         .add_plugins(OrbitCameraControllerPlugin)
         .add_plugins(QueryServerPlugin)
-        //.add_plugin(WindowResizePlugin)
+        .add_plugins(GridMenuPlugin)
+        //.add_plugins(WindowResizePlugin)
         //.add_plugins(RapierDebugRenderPlugin::default())
         .add_systems(Startup, setup_graphics)
         .add_systems(Startup, setup_physics)

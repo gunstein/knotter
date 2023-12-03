@@ -58,8 +58,9 @@ pub struct ReceiveBallTransactionsEvent {
 
 
 fn insert_ball_event_listener(mut commands: Commands, mut events: EventReader<SendInsertBallEvent>, reqwest: Res<ReqwestClient>) {
-    for event in events.iter() {
-        if let Ok(url) = Url::parse("http://127.0.0.1:8080/globe1") {
+    for event in events.read() {
+        //if let Ok(url) = Url::parse("http://127.0.0.1:8080/globe1") {
+        if let Ok(url) = Url::parse("http://192.168.86.166:8080/globe1") {
             let body = serde_json::to_string(&event.ball).unwrap();
             bevy::log::info!("insert body: {body}");
 
@@ -94,7 +95,7 @@ fn handle_insert_ball_responses(
 }
 
 fn delete_ball_event_listener(mut commands: Commands, mut events: EventReader<SendDeleteBallEvent>, reqwest: Res<ReqwestClient>) {
-    for event in events.iter() {
+    for event in events.read() {
 
         if let Ok(url) = Url::parse(&format!("http://127.0.0.1:8080/globe1/{}", event.uuid)) {
             let req = reqwest.0.delete(url).build().unwrap();
@@ -128,7 +129,8 @@ fn send_transactions_requests(mut commands: Commands, time: Res<Time>, mut timer
     timer.0.tick(time.delta());
 
     if timer.0.just_finished() {
-        if let Ok(url) = Url::parse(&format!("http://127.0.0.1:8080/globe1/{}", last_trans.0)) {
+        //if let Ok(url) = Url::parse(&format!("http://127.0.0.1:8080/globe1/{}", last_trans.0)) {
+        if let Ok(url) = Url::parse(&format!("http://192.168.86.166:8080/globe1/{}", last_trans.0)) {
             bevy::log::info!("get transactions url: {url}");
             let req = reqwest::Request::new(reqwest::Method::GET, url);
             let req = ReqwestRequest::new(req);

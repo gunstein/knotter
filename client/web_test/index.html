@@ -1,0 +1,44 @@
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <style>
+            body {
+                margin: 0;
+                padding: 0;
+                background-color: #000;
+                height: 100vh;
+                width: 100vw;
+            }
+        </style>
+    </head>
+    <script type="module">
+        import init from "./knotter.js";
+        init();
+    </script>
+    <script>
+        //Force focus to game-canvas.
+        const targetNode = document.documentElement || document.body;
+        const config = { childList: true, subtree: true };
+
+        const callback = function (mutationsList, observer) {
+            for (let mutation of mutationsList) {
+                if (mutation.type === "childList") {
+                    // Elements have changed
+                    let canvas = document.querySelector("canvas");
+                    if (canvas !== null) {
+                        canvas.focus();
+                        canvas.onblur = function () {
+                            var me = this;
+                            setTimeout(function () {
+                                me.focus();
+                            }, 50);
+                        };
+                    }
+                }
+            }
+        };
+
+        const observer = new MutationObserver(callback);
+        observer.observe(targetNode, config);
+    </script>
+</html>
