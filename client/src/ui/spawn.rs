@@ -3,7 +3,16 @@ use bevy::prelude::*;
 #[derive(Component)]
 pub struct ColorAndDeleteMenu;
 
-pub fn spawn_layout(mut commands: Commands) {
+#[derive(Component)]
+pub struct ColorButton(pub Color); // Represents the color of each button
+
+#[derive(Resource)]
+pub struct SelectedColor(pub Color); // Stores the currently selected color
+
+#[derive(Component)]
+pub struct SelectedColorButton; 
+
+pub fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Top-level grid (app frame)
     commands
         .spawn(NodeBundle {
@@ -49,17 +58,17 @@ pub fn spawn_layout(mut commands: Commands) {
                     ..default()
                 })
                 .with_children(|builder| {
-                    item_rect(builder, Color::ORANGE);
-                    item_rect(builder, Color::BISQUE);
-                    item_rect(builder, Color::BLUE);
+                    item_rect_color(builder, Color::ORANGE, false);
+                    item_rect_color(builder, Color::BISQUE, false);
+                    item_rect_color(builder, Color::BLUE, true);
 
-                    item_rect(builder, Color::CYAN);
-                    item_rect(builder, Color::ORANGE_RED);
-                    item_rect(builder, Color::DARK_GREEN);
+                    item_rect_color(builder, Color::CYAN, false);
+                    item_rect_color(builder, Color::ORANGE_RED, false);
+                    item_rect_color(builder, Color::DARK_GREEN, false);
 
-                    item_rect(builder, Color::TEAL);
-                    item_rect(builder, Color::ALICE_BLUE);
-                    item_rect(builder, Color::CRIMSON);
+                    item_rect_color(builder, Color::TEAL, false);
+                    item_rect_color(builder, Color::ALICE_BLUE, false);
+                    item_rect_image(builder, &asset_server);
                 })
                 .insert(ColorAndDeleteMenu);
 
@@ -103,7 +112,7 @@ pub fn spawn_layout(mut commands: Commands) {
 /// Create a coloured rectangle node. The node has size as it is assumed that it will be
 /// spawned as a child of a Grid container with `AlignItems::Stretch` and `JustifyItems::Stretch`
 /// which will allow it to take it's size from the size of the grid area it occupies.
-fn item_rect(builder: &mut ChildBuilder, color: Color) {
+fn item_rect_color(builder: &mut ChildBuilder, color: Color, is_selected: bool) {
     builder
         .spawn(NodeBundle {
             style: Style {
@@ -115,9 +124,49 @@ fn item_rect(builder: &mut ChildBuilder, color: Color) {
             ..default()
         })
         .with_children(|builder| {
-            builder.spawn(NodeBundle {
+            let mut button = builder.spawn(ButtonBundle {
+                //background_color: BackgroundColor(color),
                 background_color: BackgroundColor(color),
                 ..default()
             });
+            button.insert(ColorButton(color));
+            if is_selected{
+                button.insert(SelectedColorButton);
+            }
+        });
+}
+
+fn item_rect_image(builder: &mut ChildBuilder, asset_server: &Res<AssetServer>) {
+    builder
+        .spawn(NodeBundle {
+            style: Style {
+                display: Display::Grid,
+                padding: UiRect::all(Val::Px(3.0)),
+                ..default()
+            },
+            background_color: BackgroundColor(Color::BLACK),
+            ..default()
+        })
+        .with_children(|builder| {
+            builder.spawn(ButtonBundle {
+                style: Style { 
+                    width: Val::Percent(100.0),
+                    height:  Val::Percent(100.0),
+                    ..default()
+                },
+                ..default()
+            })
+            .with_children(|parent| {
+                parent.spawn(ImageBundle {
+                    style: Style {
+                        width: Val::Percent(100.0),
+                        height:  Val::Percent(100.0),
+                        ..default()
+                    },
+                    image: asset_server.load("delete_ball.png").into(),
+                    ..default()
+                });
+            });
+            //.insert(ColorButton(color));
         });
 }
