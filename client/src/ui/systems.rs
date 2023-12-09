@@ -57,3 +57,39 @@ pub fn update_color_button_appearance(
         }
     }
 }
+
+pub fn delete_button_selector(
+    mut commands: Commands,
+    interaction_query: Query<(Entity, &Interaction), (Changed<Interaction>, With<DeleteButton>)>,
+    mut selected_query: Query<Entity, (With<SelectedDeleteButton>, With<DeleteButton>)>,
+    mut selected_delete: ResMut<SelectedDelete>,
+) {
+    //bevy::log::info!("color_button_selector 0");
+    for (entity, interaction) in interaction_query.iter() {
+        //bevy::log::info!("color_button_selector 1");
+        if *interaction == Interaction::Pressed {
+            if let Ok(previous_entity) = selected_query.get_single_mut() {
+                commands.entity(previous_entity).remove::<SelectedDeleteButton>();
+                selected_delete.0 = false;
+            }
+            else{
+                commands.entity(entity).insert(SelectedDeleteButton);
+                selected_delete.0 = true;
+            }
+        }
+    }
+}
+
+pub fn update_delete_button_appearance(
+    mut query: Query<(&mut Style, Option<&SelectedDeleteButton>), With<DeleteButton>>,
+) {
+    for ( mut style, selected) in query.iter_mut() {
+        if let Some(_) = selected {
+            // Change appearance to indicate selection
+            style.margin = UiRect::all(Val::Px(3.0));
+        } else {
+            // Revert to normal appearance
+            style.margin = UiRect::all(Val::Px(0.0));
+        }
+    }
+}

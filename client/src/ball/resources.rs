@@ -9,3 +9,4 @@ pub struct HandleForBallMesh {
 pub struct HandleForBallMaterial {
     pub handle: Handle<StandardMaterial>,
 }
+

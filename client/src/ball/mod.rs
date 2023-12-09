@@ -6,8 +6,11 @@ pub mod components;
 pub mod resources;
 pub mod systems;
 pub mod spawn;
+pub mod color_material_map;
 
 use systems::*;
+use color_material_map::*;
+use std::collections::HashMap;
 
 pub const BALL_RADIUS: f32 = 0.05;
 
@@ -17,6 +20,9 @@ impl Plugin for BallPlugin {
     fn build(&self, app: &mut App) {
         app
             //.add_systems(Startup, spawn_static_balls)
+            .insert_resource(ColorMaterialMap {
+                map: HashMap::new(),
+            })
             .add_systems(Startup, init_ball_resources)
             //.add_systems(Startup, spawn_moving_balls)
             .add_systems(Update, push_ball_against_globe)

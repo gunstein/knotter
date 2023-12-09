@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use crate::ball::color_material_map::*;
 
 #[derive(Component)]
 pub struct ColorAndDeleteMenu;
@@ -10,9 +11,21 @@ pub struct ColorButton(pub Color); // Represents the color of each button
 pub struct SelectedColor(pub Color); // Stores the currently selected color
 
 #[derive(Component)]
-pub struct SelectedColorButton; 
+pub struct SelectedColorButton;
 
-pub fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
+#[derive(Component)]
+pub struct DeleteButton; 
+
+#[derive(Component)]
+pub struct SelectedDeleteButton;
+
+#[derive(Resource)]
+pub struct SelectedDelete(pub bool);
+
+pub fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>, color_material_map: Res<ColorMaterialMap>) {
+    // Extract colors from the ColorMaterialMap keys
+    let colors: Vec<Color> = color_material_map.map.keys().map(|color_key| color_key.0).collect();
+
     // Top-level grid (app frame)
     commands
         .spawn(NodeBundle {
@@ -58,16 +71,10 @@ pub fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 })
                 .with_children(|builder| {
-                    item_rect_color(builder, Color::ORANGE, false);
-                    item_rect_color(builder, Color::BISQUE, false);
-                    item_rect_color(builder, Color::BLUE, true);
-
-                    item_rect_color(builder, Color::CYAN, false);
-                    item_rect_color(builder, Color::ORANGE_RED, false);
-                    item_rect_color(builder, Color::DARK_GREEN, false);
-
-                    item_rect_color(builder, Color::TEAL, false);
-                    item_rect_color(builder, Color::ALICE_BLUE, false);
+                    for color in colors.iter() {
+                        let is_blue = *color == Color::BLUE; // Check if the color is blue, then it should be selected.
+                        item_rect_color(builder, *color, is_blue);
+                    }
                     item_rect_image(builder, &asset_server);
                 })
                 .insert(ColorAndDeleteMenu);
@@ -104,6 +111,7 @@ pub fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 },
                 background_color: BackgroundColor(Color::WHITE),
+                visibility: Visibility::Hidden,
                 ..default()
             });
         });
@@ -166,7 +174,7 @@ fn item_rect_image(builder: &mut ChildBuilder, asset_server: &Res<AssetServer>) 
                     image: asset_server.load("delete_ball.png").into(),
                     ..default()
                 });
-            });
-            //.insert(ColorButton(color));
+            })
+            .insert(DeleteButton);
         });
 }

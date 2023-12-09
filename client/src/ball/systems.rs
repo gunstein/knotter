@@ -2,11 +2,13 @@ use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use shared::domain::dtos::ball_transaction_dto::BallTransactionDto;
 use uuid::Uuid;
+use crate::ui::spawn::SelectedColor;
 
 use super::BALL_RADIUS;
 use super::components::*;
 use super::resources::*;
 use super::spawn::*;
+use super::color_material_map::*;
 use crate::AppState;
 use crate::globe;
 use shared::domain::dtos::ball_dto::BallDto;
@@ -31,9 +33,24 @@ pub fn init_ball_resources(mut commands: Commands,
 
     commands.insert_resource(HandleForBallMesh { handle: ball_mesh_handle });     
 
-    let ball_material_handle = materials.add(Color::BLUE.into());
-    commands.insert_resource(HandleForBallMaterial { handle: ball_material_handle });
-    
+    //let ball_material_handle = materials.add(Color::BLUE.into());
+
+    //commands.insert_resource(HandleForBallMaterial { handle: ball_material_handle });
+
+    let mut color_map = ColorMaterialMap::new();
+
+    color_map.insert(Color::ORANGE, materials.add(Color::ORANGE.into()));
+    color_map.insert(Color::BISQUE, materials.add(Color::BISQUE.into()));
+    color_map.insert(Color::BLUE, materials.add(Color::BLUE.into()));
+
+    color_map.insert(Color::CYAN, materials.add(Color::CYAN.into()));
+    color_map.insert(Color::ORANGE_RED, materials.add(Color::ORANGE_RED.into()));
+    color_map.insert(Color::DARK_GREEN, materials.add(Color::DARK_GREEN.into()));
+
+    color_map.insert(Color::TEAL, materials.add(Color::TEAL.into()));
+    color_map.insert(Color::ALICE_BLUE, materials.add(Color::ALICE_BLUE.into()));
+
+    commands.insert_resource(color_map);   
 }
 
 pub fn push_ball_against_globe(
@@ -86,77 +103,11 @@ pub fn handle_ball_collision(
     }
 }
 
-
-//-Raycast mot sentrum av globen.
-//-Hvis treffer globe (og ikke annen ball) så spawn ny ball i raycast-treff-punkt + radius ut i retning fra globe-senter.
-// Må få mouse-koordinater
-//Add a ball to the globe and set state to EditUpsertSetSpeed
-/* 
 pub fn edit_upsert_ball_on_globe(
     mut commands: Commands,
     ball_mesh_resource: Res<HandleForBallMesh>,
-    ball_material_resource: Res<HandleForBallMaterial>,
-    cameras: Query<(&Camera, &GlobalTransform)>,
-    rapier_context: Res<RapierContext>,
-    mouse: Res<Input<MouseButton>>,
-    windows: Query<&mut Window>,
-    query_globe: Query<Entity, With<globe::Globe>>,
-    mut next_state: ResMut<NextState<AppState>>,
-) {
-    if !mouse.just_pressed(MouseButton::Left) {
-        return
-    }
-    
-    //println!("Left button pushed");
-    let window = windows.single();
-
-    let Some(cursor_position) = window.cursor_position() else { return; };
-
-    for (camera, camera_transform) in &cameras {
-        // First, compute a ray from the mouse position.
-        let Some(ray) = camera.viewport_to_world(camera_transform, cursor_position) else { return; };
-
-        let ball_shape = Collider::ball(BALL_RADIUS);
-        let shape_rot = Quat::from_rotation_z(0.0);
-        // Then cast the ray.
-        if let Some((entity, hit)) = rapier_context.cast_shape(
-            ray.origin,
-            shape_rot,
-            ray.direction,
-            &ball_shape,
-            f32::MAX,
-            true,
-            QueryFilter::default(),
-        ){
-            for entity_globe in query_globe.iter() {
-                if entity_globe == entity {
-                    let hit_point = ray.origin + ray.direction * hit.toi;
-                    spawn_static_ball(&mut commands, 
-                        &ball_mesh_resource,
-                        &ball_material_resource,
-                        (hit_point.x, hit_point.y, hit_point.z),
-                        true,
-                        None
-                    );
-                }
-            }
-            // The first collider hit has the entity `entity`. The `hit` is a
-            // structure containing details about the hit configuration.
-            //println!("Hit the entity {:?} with the configuration: {:?}", entity, hit);
-        }            
-    }
-
-    //println!("Finished");
-
-    next_state.set(AppState::EditUpsertSetSpeed);
-
-}
-*/
-
-pub fn edit_upsert_ball_on_globe(
-    mut commands: Commands,
-    ball_mesh_resource: Res<HandleForBallMesh>,
-    ball_material_resource: Res<HandleForBallMaterial>,
+    ball_material_resource: Res<ColorMaterialMap>,
+    selected_color_resource: Res<SelectedColor>,
     cameras: Query<(&Camera, &GlobalTransform)>,
     rapier_context: Res<RapierContext>,
     mouse: Res<Input<MouseButton>>,
@@ -198,6 +149,7 @@ pub fn edit_upsert_ball_on_globe(
                             spawn_static_ball(&mut commands, 
                                 &ball_mesh_resource,
                                 &ball_material_resource,
+                                &selected_color_resource,
                                 (hit_point.x, hit_point.y, hit_point.z),
                                 true,
                                 None
@@ -337,7 +289,8 @@ pub fn edit_upsert_set_speed(
 pub fn finalize_upsert_ball_on_globe(
     mut commands: Commands,
     ball_mesh_resource: Res<HandleForBallMesh>,
-    ball_material_resource: Res<HandleForBallMaterial>,
+    ball_material_resource: Res<ColorMaterialMap>,
+    selected_color_resource: Res<SelectedColor>,
     cameras: Query<(&Camera, &GlobalTransform)>,
     rapier_context: Res<RapierContext>,
     mouse: Res<Input<MouseButton>>,
@@ -416,6 +369,7 @@ pub fn finalize_upsert_ball_on_globe(
                         spawn_moving_ball(&mut commands, 
                             &ball_mesh_resource,
                             &ball_material_resource,
+                            &selected_color_resource,
                             (ball_position.x, ball_position.y, ball_position.z),
                             impulse,
                             Some(upsert_ball.3.0) );
@@ -550,7 +504,8 @@ pub fn receive_ball_transactions_event_listener(
     mut commands: Commands, 
     mut events: EventReader<crate::query_server::ReceiveBallTransactionsEvent>, 
     ball_mesh_resource: Res<HandleForBallMesh>,
-    ball_material_resource: Res<HandleForBallMaterial>,
+    ball_material_resource: Res<ColorMaterialMap>,
+    selected_color_resource: Res<SelectedColor>,
     query_balls: Query<(Entity, &BallUuid, &Transform)>,
 ) {
     for event in events.read() {
@@ -609,6 +564,7 @@ pub fn receive_ball_transactions_event_listener(
                         &mut commands,
                         &ball_mesh_resource,
                         &ball_material_resource,
+                        &selected_color_resource,
                         &new_ball_transaction,
                     );
 
@@ -630,7 +586,8 @@ pub fn receive_ball_transactions_event_listener(
 fn handle_insert_ball_transaction(
     commands: &mut Commands,
     ball_mesh_resource: &Res<HandleForBallMesh>,
-    ball_material_resource: &Res<HandleForBallMaterial>,
+    ball_material_resource: &Res<ColorMaterialMap>,
+    selected_color_resource: &Res<SelectedColor>,
     ball_transaction: &BallTransactionDto,
 ) {
     let position = match &ball_transaction.ball_dto.position {
@@ -647,6 +604,7 @@ fn handle_insert_ball_transaction(
             commands, 
             ball_mesh_resource,
             ball_material_resource,
+            selected_color_resource,
             (position.x, position.y, position.z),
             false,
             Some(ball_transaction.ball_dto.uuid)
@@ -664,6 +622,7 @@ fn handle_insert_ball_transaction(
             commands, 
             ball_mesh_resource,
             ball_material_resource,
+            selected_color_resource,
             (position.x, position.y, position.z),
             Vec3::new(impulse.x, impulse.y, impulse.z),
             Some(ball_transaction.ball_dto.uuid)
