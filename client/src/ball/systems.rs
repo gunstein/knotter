@@ -23,7 +23,7 @@ const SPEED_MARKER_MAX_LENGTH: f32 = 0.5;
 //add mesh and material for ball and add to resource
 pub fn init_ball_resources(mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    //mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
 
     let ball_mesh_handle: Handle<Mesh> = meshes.add(Mesh::from(shape::UVSphere {
@@ -36,7 +36,7 @@ pub fn init_ball_resources(mut commands: Commands,
     //let ball_material_handle = materials.add(Color::BLUE.into());
 
     //commands.insert_resource(HandleForBallMaterial { handle: ball_material_handle });
-
+    /*
     let mut color_map = ColorMaterialMap::new();
 
     color_map.insert(Color::ORANGE, materials.add(Color::ORANGE.into()));
@@ -50,7 +50,8 @@ pub fn init_ball_resources(mut commands: Commands,
     color_map.insert(Color::TEAL, materials.add(Color::TEAL.into()));
     color_map.insert(Color::ALICE_BLUE, materials.add(Color::ALICE_BLUE.into()));
 
-    commands.insert_resource(color_map);   
+    commands.insert_resource(color_map);  
+    */ 
 }
 
 pub fn push_ball_against_globe(
@@ -106,7 +107,8 @@ pub fn handle_ball_collision(
 pub fn edit_upsert_ball_on_globe(
     mut commands: Commands,
     ball_mesh_resource: Res<HandleForBallMesh>,
-    ball_material_resource: Res<ColorMaterialMap>,
+    mut ball_material_resource: ResMut<ColorMaterialMap>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
     selected_color_resource: Res<SelectedColor>,
     cameras: Query<(&Camera, &GlobalTransform)>,
     rapier_context: Res<RapierContext>,
@@ -148,8 +150,9 @@ pub fn edit_upsert_ball_on_globe(
                             let hit_point = ray.origin + ray.direction * hit.toi;
                             spawn_static_ball(&mut commands, 
                                 &ball_mesh_resource,
-                                &ball_material_resource,
-                                &selected_color_resource,
+                                &mut ball_material_resource,
+                                &mut materials,
+                                selected_color_resource.0,
                                 (hit_point.x, hit_point.y, hit_point.z),
                                 true,
                                 None
@@ -289,7 +292,8 @@ pub fn edit_upsert_set_speed(
 pub fn finalize_upsert_ball_on_globe(
     mut commands: Commands,
     ball_mesh_resource: Res<HandleForBallMesh>,
-    ball_material_resource: Res<ColorMaterialMap>,
+    mut ball_material_resource: ResMut<ColorMaterialMap>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
     selected_color_resource: Res<SelectedColor>,
     cameras: Query<(&Camera, &GlobalTransform)>,
     rapier_context: Res<RapierContext>,
@@ -368,23 +372,24 @@ pub fn finalize_upsert_ball_on_globe(
 
                         spawn_moving_ball(&mut commands, 
                             &ball_mesh_resource,
-                            &ball_material_resource,
-                            &selected_color_resource,
+                            &mut ball_material_resource,
+                            &mut materials,
+                            selected_color_resource.0,
                             (ball_position.x, ball_position.y, ball_position.z),
                             impulse,
                             Some(upsert_ball.3.0) );
-                        send_insert_ball_event(&mut send_insert_ball_events, upsert_ball.3.0, ball_position, Some(impulse));
+                        send_insert_ball_event(&mut send_insert_ball_events, upsert_ball.3.0, ball_position, Some(impulse), &selected_color_resource);
                     }
                     else{
                         //Remove Upsert component on ball. The ball is then permanent static.
                         commands.entity(upsert_ball.0).remove::<Upserted>();
-                        send_insert_ball_event(&mut send_insert_ball_events, upsert_ball.3.0, ball_position, None);
+                        send_insert_ball_event(&mut send_insert_ball_events, upsert_ball.3.0, ball_position, None, &selected_color_resource);
                     }
                 }
                 else{
                     //Mouse did not hit globe so ball will be fixed.
                     commands.entity(upsert_ball.0).remove::<Upserted>();
-                    send_insert_ball_event(&mut send_insert_ball_events, upsert_ball.3.0, upsert_ball.1.translation, None);
+                    send_insert_ball_event(&mut send_insert_ball_events, upsert_ball.3.0, upsert_ball.1.translation, None, &selected_color_resource);
                 }
             }
         }
@@ -472,11 +477,17 @@ pub fn handle_delete_state(
     }
 }
 
+fn color_to_hex(color: Color) -> String {
+    let rgba = color.as_rgba_u8();
+    format!("#{:02X}{:02X}{:02X}{:02X}", rgba[0], rgba[1], rgba[2], rgba[3])
+}
+
 fn send_insert_ball_event(
     send_insert_ball_events: &mut EventWriter<crate::query_server::SendInsertBallEvent>,
     ball_uuid: Uuid,
     ball_position: Vec3,
     ball_impulse: Option<Vec3>,
+    selected_color_resource: &Res<SelectedColor>,
 ) {
     // is_fixed is true if ball_impulse is None, false otherwise
     let is_fixed = ball_impulse.is_none();
@@ -485,7 +496,8 @@ fn send_insert_ball_event(
             is_fixed,
             is_insert: true,
             uuid: ball_uuid,
-            color: Some("#ff0000".to_string()),
+            //color: Some("#ff0000".to_string()),
+            color: Some(color_to_hex(selected_color_resource.0)),
             position: Some(PositionDto {
                 x: ball_position.x,
                 y: ball_position.y,
@@ -504,8 +516,9 @@ pub fn receive_ball_transactions_event_listener(
     mut commands: Commands, 
     mut events: EventReader<crate::query_server::ReceiveBallTransactionsEvent>, 
     ball_mesh_resource: Res<HandleForBallMesh>,
-    ball_material_resource: Res<ColorMaterialMap>,
-    selected_color_resource: Res<SelectedColor>,
+    mut ball_material_resource: ResMut<ColorMaterialMap>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    //selected_color_resource: Res<SelectedColor>,
     query_balls: Query<(Entity, &BallUuid, &Transform)>,
 ) {
     for event in events.read() {
@@ -563,8 +576,9 @@ pub fn receive_ball_transactions_event_listener(
                     handle_insert_ball_transaction(
                         &mut commands,
                         &ball_mesh_resource,
-                        &ball_material_resource,
-                        &selected_color_resource,
+                        &mut ball_material_resource,
+                        &mut materials,
+                        //&selected_color_resource,
                         &new_ball_transaction,
                     );
 
@@ -586,8 +600,9 @@ pub fn receive_ball_transactions_event_listener(
 fn handle_insert_ball_transaction(
     commands: &mut Commands,
     ball_mesh_resource: &Res<HandleForBallMesh>,
-    ball_material_resource: &Res<ColorMaterialMap>,
-    selected_color_resource: &Res<SelectedColor>,
+    ball_material_resource: &mut ResMut<ColorMaterialMap>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
+    //selected_color_resource: &Res<SelectedColor>,
     ball_transaction: &BallTransactionDto,
 ) {
     let position = match &ball_transaction.ball_dto.position {
@@ -599,12 +614,19 @@ fn handle_insert_ball_transaction(
         },
     };
 
+    let color = if let Some(hex_color) = &ball_transaction.ball_dto.color {
+        Color::hex(&hex_color).unwrap()
+    } else {
+        Color::WHITE // Default color if None
+    };
+
     if ball_transaction.ball_dto.is_fixed {
         spawn_static_ball(
             commands, 
             ball_mesh_resource,
             ball_material_resource,
-            selected_color_resource,
+            materials,
+            color,
             (position.x, position.y, position.z),
             false,
             Some(ball_transaction.ball_dto.uuid)
@@ -622,7 +644,8 @@ fn handle_insert_ball_transaction(
             commands, 
             ball_mesh_resource,
             ball_material_resource,
-            selected_color_resource,
+            materials,
+            color,
             (position.x, position.y, position.z),
             Vec3::new(impulse.x, impulse.y, impulse.z),
             Some(ball_transaction.ball_dto.uuid)

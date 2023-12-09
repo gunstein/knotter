@@ -22,9 +22,11 @@ pub struct SelectedDeleteButton;
 #[derive(Resource)]
 pub struct SelectedDelete(pub bool);
 
-pub fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>, color_material_map: Res<ColorMaterialMap>) {
+pub fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>, 
+    //color_material_map: Res<ColorMaterialMap>
+) {
     // Extract colors from the ColorMaterialMap keys
-    let colors: Vec<Color> = color_material_map.map.keys().map(|color_key| color_key.0).collect();
+    //let colors: Vec<Color> = color_material_map.map.keys().map(|color_key| color_key.0).collect();
 
     // Top-level grid (app frame)
     commands
@@ -71,10 +73,16 @@ pub fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>, colo
                     ..default()
                 })
                 .with_children(|builder| {
-                    for color in colors.iter() {
-                        let is_blue = *color == Color::BLUE; // Check if the color is blue, then it should be selected.
-                        item_rect_color(builder, *color, is_blue);
-                    }
+                    item_rect_color(builder, Color::ORANGE, false);
+                    item_rect_color(builder, Color::BISQUE, false);
+                    item_rect_color(builder, Color::BLUE, true);
+
+                    item_rect_color(builder, Color::CYAN, false);
+                    item_rect_color(builder, Color::ORANGE_RED, false);
+                    item_rect_color(builder, Color::DARK_GREEN, false);
+
+                    item_rect_color(builder, Color::TEAL, false);
+                    item_rect_color(builder, Color::ALICE_BLUE, false);
                     item_rect_image(builder, &asset_server);
                 })
                 .insert(ColorAndDeleteMenu);

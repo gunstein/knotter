@@ -100,14 +100,14 @@ impl ValidationService {
         if !re.is_match(color) {
             return false;
         }
-    
-        match color.to_lowercase().as_str() {
+        return true
+        /*match color.to_lowercase().as_str() {
             "#ff0000" => true,  // Red
             "#00ff00" => true,  // Green
             "#0000ff" => true,  // Blue
             "#ffff00" => true,  // Yellow
             _ => false,
-        }
+        }*/
     }
 }
 

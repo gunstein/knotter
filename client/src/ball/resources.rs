@@ -5,8 +5,8 @@ pub struct HandleForBallMesh {
     pub handle: Handle<Mesh>,
 }
 
-#[derive(Resource)]
+/*#[derive(Resource)]
 pub struct HandleForBallMaterial {
     pub handle: Handle<StandardMaterial>,
-}
+}*/
 

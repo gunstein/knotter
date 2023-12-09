@@ -23,7 +23,7 @@ impl Plugin for BallPlugin {
             .insert_resource(ColorMaterialMap {
                 map: HashMap::new(),
             })
-            .add_systems(Startup, init_ball_resources)
+            .add_systems(PreStartup, init_ball_resources)
             //.add_systems(Startup, spawn_moving_balls)
             .add_systems(Update, push_ball_against_globe)
             .add_systems(Update, handle_ball_collision)
