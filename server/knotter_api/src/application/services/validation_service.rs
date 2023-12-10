@@ -73,7 +73,7 @@ impl ValidationService {
         match &ball_entity.color {
             Some(color) => {
                 if !ValidationService::validate_color(color) {
-                    return Err(MyError::ValidationError("Invalid color value provided. Please use one of the accepted 6-digit hex formats: #FF0000 (Red), #00FF00 (Green), #0000FF (Blue), or #FFFF00 (Yellow).".to_string()));
+                    return Err(MyError::ValidationError(format!("Invalid color value provided: {}", color)));
                 }
             },
             None => {
@@ -96,18 +96,8 @@ impl ValidationService {
     }
 
     fn validate_color(color: &str) -> bool {
-        let re = Regex::new(r"^#([A-Fa-f0-9]{6})$").unwrap();
-        if !re.is_match(color) {
-            return false;
-        }
-        return true
-        /*match color.to_lowercase().as_str() {
-            "#ff0000" => true,  // Red
-            "#00ff00" => true,  // Green
-            "#0000ff" => true,  // Blue
-            "#ffff00" => true,  // Yellow
-            _ => false,
-        }*/
+        let re = Regex::new(r"^#([A-Fa-f0-9]{8})$").unwrap();
+        re.is_match(color)
     }
 }
 

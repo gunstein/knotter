@@ -3,6 +3,7 @@ use bevy_rapier3d::prelude::*;
 use shared::domain::dtos::ball_transaction_dto::BallTransactionDto;
 use uuid::Uuid;
 use crate::ui::spawn::SelectedColor;
+use crate::ui::spawn::SelectedDelete;
 
 use super::BALL_RADIUS;
 use super::components::*;
@@ -465,8 +466,9 @@ pub fn handle_delete_state(
     keyboard_input: Res<Input<KeyCode>>,
     current_state: Res<State<AppState>>,
     mut next_state: ResMut<NextState<AppState>>,
+    selected_delete: Res<SelectedDelete>
 ) {
-    if keyboard_input.pressed(KeyCode::Delete) {
+    if keyboard_input.pressed(KeyCode::Delete) || selected_delete.0 == true {
         if *current_state == AppState::EditUpsert {
             next_state.set(AppState::EditDelete);
         }

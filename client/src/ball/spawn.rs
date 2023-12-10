@@ -17,7 +17,7 @@ pub fn spawn_static_ball(
     upserted: bool,
     uuid: Option<Uuid>,
 ) {
-    bevy::log::info!("spawn_static_ball");
+    //bevy::log::info!("spawn_static_ball, ball_materials_resource length = {:?}", ball_materials_resource.map.len());
     
     // Decide on the UUID to use: either the one provided, or generate a new one
     let ball_uuid = uuid.unwrap_or_else(Uuid::new_v4);
