@@ -16,9 +16,12 @@ fn camera_orbit(
 ) {
     const ORBIT_SPEED: f32 = 2.0;
     const PITCH_SPEED: f32 = 1.0; // Reduced pitch step for finer control
-    const ZOOM_SPEED: f32 = 0.5;
+    const ZOOM_SPEED: f32 = 0.2;
     const MAX_PITCH: f32 = 20.0 * std::f32::consts::PI / 180.0; // 20 degrees in radians
     const MIN_PITCH: f32 = -20.0 * std::f32::consts::PI / 180.0; // -20 degrees in radians
+    const MAX_ZOOM: f32 = 10.0; // maximum distance from the object
+    const MIN_ZOOM: f32 = 2.0;  // minimum distance from the object
+
 
     for (_tag, mut transform) in query.iter_mut() {
         // Handle Y-axis rotation
@@ -57,14 +60,18 @@ fn camera_orbit(
             transform.rotate(rotation);
         }
 
-        // Zoom in/out
-        if keyboard_input.pressed(KeyCode::E) {
-            let forward = transform.forward();
-            transform.translation += forward * ZOOM_SPEED;
-        }
-        if keyboard_input.pressed(KeyCode::Q) {
-            let forward = transform.forward();
-            transform.translation -= forward * ZOOM_SPEED;
+        // Zoom in/out with limits
+        if keyboard_input.pressed(KeyCode::E) || keyboard_input.pressed(KeyCode::Q) {
+            let zoom_direction = if keyboard_input.pressed(KeyCode::E) { 1.0 } else { -1.0 };
+            let proposed_translation = transform.translation + transform.forward() * zoom_direction * ZOOM_SPEED;
+
+            // Calculate the distance from the object
+            let distance = proposed_translation.length();
+
+            // Apply zoom only if within limits
+            if distance >= MIN_ZOOM && distance <= MAX_ZOOM {
+                transform.translation = proposed_translation;
+            }
         }
     }
 }
