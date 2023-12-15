@@ -232,7 +232,7 @@ pub fn edit_upsert_set_speed(
                     ..default()
                 };
                 //println!("gvtest3");
-                // Then cast the ray. Maybe cast_ray_and_get_normal, if I need the hit point normal.
+                // Then cast the ray. 
                 if let Some((_, toi)) = rapier_context.cast_ray(
                     ray.origin,
                     ray.direction,

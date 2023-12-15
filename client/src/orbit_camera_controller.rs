@@ -3,14 +3,24 @@ use bevy::{
     prelude::*,
     time::Time,
 };
-
+use crate::AppState;
+use crate::globe;
+use bevy_rapier3d::prelude::*;
 pub struct OrbitCameraControllerPlugin;
 
 impl Plugin for OrbitCameraControllerPlugin {
     fn build(&self, app: &mut App) {
         app
             .insert_resource(TouchCameraConfig::default())
-            .add_systems(Update, camera_orbit);
+            //.add_systems(Update, camera_orbit)
+            //.add_systems(Update, camera_orbit.run_if(is_not_in_desired_state))
+            .add_systems(Update, camera_orbit_orbiting.run_if(in_state(AppState::Orbiting)))
+            .add_systems(Update, camera_orbit_zooming.run_if(in_state(AppState::Zooming)))
+            .add_systems(Update, camera_orbit_key.run_if(in_state(AppState::EditUpsert)))
+            .add_systems(Update, state_handler_orbit_and_zoom.run_if(in_state(AppState::EditUpsert)
+                .or_else(in_state(AppState::Zooming)).or_else(in_state(AppState::Orbiting))))
+            ;
+            //.add_systems(Update, print_state);
     }
 }
 
@@ -41,10 +51,73 @@ impl Default for TouchCameraConfig {
     }
 }
 
-fn camera_orbit(
+fn is_not_in_desired_state(state: Res<State<AppState>>) -> bool {
+    match state.get() {
+        AppState::EditUpsertSetSpeed => false,
+        _ => true,
+    }
+}
+
+fn print_state(state: Res<State<AppState>>) {
+    bevy::log::info!("Current AppState: {:?}", state.get());
+}
+
+fn state_handler_orbit_and_zoom(
+    touches_res: Res<Touches>,
+    current_state: Res<State<AppState>>,
+    mut next_state: ResMut<NextState<AppState>>,
+    cameras: Query<(&Camera, &GlobalTransform)>,
+    rapier_context: Res<RapierContext>,
+) {
+    let touches: Vec<&touch::Touch> = touches_res.iter().collect();
+    if touches.len() == 2 {
+        next_state.set(AppState::Zooming);
+    }
+    else if touches.len() == 1 {
+        if *current_state != AppState::Orbiting {
+            if let Some(cursor_position) = touches.iter().next().map(|touch| touch.position()){
+                for (camera, camera_transform) in &cameras {
+                    if let Some(ray) = camera.viewport_to_world(camera_transform, cursor_position) {
+                        //Only hit globe, globe is only member of CollisionGroup GROUP_1
+                        let filter = QueryFilter {
+                            groups: Some(
+                                CollisionGroups {
+                                    memberships: Group::GROUP_2,
+                                    filters: Group::GROUP_1,
+                                }
+                            ),
+                            ..default()
+                        };
+                        //println!("gvtest3");
+                        // Then cast the ray. 
+                        if let Some((_, _)) = rapier_context.cast_ray(
+                            ray.origin,
+                            ray.direction,
+                            f32::MAX,
+                            true,
+                            filter,
+                        ){
+                            //Do nothing. let state be what it was
+
+                        }
+                        else{
+                            //no hit
+                            next_state.set(AppState::Orbiting);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    else{
+        next_state.set(AppState::EditUpsert); //or EditDelete if relevant
+    }
+}
+
+
+fn camera_orbit_key(
     time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
-    //touches_res: Res<Touches>,
     mut query: Query<(&Camera, &mut Transform)>,
     config: Res<TouchCameraConfig>,
 ) {
@@ -93,8 +166,16 @@ fn camera_orbit(
                 transform.translation = transform.translation.normalize() * new_zoom;
             }
         }
+    }
+}
 
-        /* 
+fn camera_orbit_zooming(
+    touches_res: Res<Touches>,
+    mut query: Query<(&Camera, &mut Transform)>,
+    config: Res<TouchCameraConfig>,
+    mut next_state: ResMut<NextState<AppState>>
+) {
+    for (_camera, mut transform) in query.iter_mut() { 
         let touches: Vec<&touch::Touch> = touches_res.iter().collect();
 
         // Touch control logic
@@ -102,7 +183,8 @@ fn camera_orbit(
             // Implement pinch to zoom
             let distance_current = touches[0].position() - touches[1].position();
             let distance_prev = touches[0].previous_position() - touches[1].previous_position();
-            let pinch_direction = distance_prev.length() - distance_current.length();
+            //let pinch_direction = distance_prev.length() - distance_current.length();
+            let pinch_direction =  distance_current.length() - distance_prev.length();
             let zoom_amount = pinch_direction * config.zoom_speed;
             let forward = transform.forward();
             transform.translation += forward * zoom_amount;
@@ -114,24 +196,59 @@ fn camera_orbit(
             } else if distance > config.max_zoom {
                 transform.translation = transform.translation.normalize() * config.max_zoom;
             }
-        } else if touches.len() == 1 {
-            // Implement orbit
-            let delta = touches[0].delta();
-            let rotation_x = Quat::from_rotation_y(-delta.x * config.orbit_speed * time.delta_seconds());
-            let rotation_y = Quat::from_rotation_x(-delta.y * config.pitch_speed * time.delta_seconds());
-
-            transform.rotate(rotation_x);
-            transform.rotate(rotation_y);
-
-            // Clamp the pitch
-            let current_pitch = transform.rotation.to_euler(EulerRot::XYZ).1;
-            if current_pitch < config.min_pitch {
-                transform.rotation = Quat::from_euler(EulerRot::XYZ, 0.0, config.min_pitch, 0.0);
-            } else if current_pitch > config.max_pitch {
-                transform.rotation = Quat::from_euler(EulerRot::XYZ, 0.0, config.max_pitch, 0.0);
-            }
+            next_state.set(AppState::Zooming);
         }
-        */
+    }
+}
+
+
+fn camera_orbit_orbiting(
+    time: Res<Time>,
+    touches_res: Res<Touches>,
+    mut query: Query<(&Camera, &mut Transform)>,
+    config: Res<TouchCameraConfig>,
+    mut next_state: ResMut<NextState<AppState>>
+) {
+    for (_camera, mut transform) in query.iter_mut() { 
+
+        let touches: Vec<&touch::Touch> = touches_res.iter().collect();
+
+        if touches.len() == 1 {
+            let delta = touches[0].delta();
+
+            // Calculate the proposed pitch change (rotation around the x-axis)
+            let axis_of_rotation_x = transform.right();
+            let mut proposed_pitch_change = -delta.y * config.pitch_speed * time.delta_seconds();
+            let current_pitch = transform.forward().y.asin();
+            let proposed_pitch = current_pitch + proposed_pitch_change;
+        
+            // Clamp the pitch change
+            if proposed_pitch < config.min_pitch {
+                proposed_pitch_change = config.min_pitch - current_pitch;
+            } else if proposed_pitch > config.max_pitch {
+                proposed_pitch_change = config.max_pitch - current_pitch;
+            }
+        
+            // Apply the clamped pitch rotation
+            let rotation_x = Quat::from_axis_angle(axis_of_rotation_x, proposed_pitch_change);
+            transform.rotate(rotation_x);
+        
+            // Calculate and apply the rotation around the y-axis (orbit)
+            let rotation_y = Quat::from_rotation_y(-delta.x * config.orbit_speed * time.delta_seconds());
+            transform.rotate(rotation_y);
+        
+            // Adjust the camera's position and orientation
+            let translation = transform.translation;
+            transform.translation = Vec3::ZERO;
+            transform.rotate(rotation_y * rotation_x);
+            transform.translation = rotation_y * rotation_x * translation;
+        
+            // Ensure the camera is always oriented towards the center of the globe
+            transform.look_at(Vec3::ZERO, Vec3::Y);       
+        
+            bevy::log::info!("Next State orbiting");
+            next_state.set(AppState::Orbiting);
+        }
     }
 }
 

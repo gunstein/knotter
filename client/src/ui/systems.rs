@@ -55,7 +55,7 @@ pub fn color_button_selector(
     }
 
     // Handle touch events
-    for touch in touch_events.iter() {
+    for touch in touch_events.read() {
         if touch.phase == TouchPhase::Started {
             for (entity, color_button, global_transform, node) in touch_input_query.iter() {
                 if is_touch_over_button(touch, global_transform, node) {
@@ -147,7 +147,7 @@ pub fn delete_button_selector(
     }
 
     // Handle touch events
-    for touch in touch_events.iter() {
+    for touch in touch_events.read() {
         if touch.phase == TouchPhase::Started {
             for (entity, global_transform, node) in touch_input_query.iter() {
                 if is_touch_over_button(touch, global_transform, node) {

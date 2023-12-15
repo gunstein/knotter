@@ -97,7 +97,8 @@ fn handle_insert_ball_responses(
 fn delete_ball_event_listener(mut commands: Commands, mut events: EventReader<SendDeleteBallEvent>, reqwest: Res<ReqwestClient>) {
     for event in events.read() {
 
-        if let Ok(url) = Url::parse(&format!("http://127.0.0.1:8080/globe1/{}", event.uuid)) {
+        //if let Ok(url) = Url::parse(&format!("http://127.0.0.1:8080/globe1/{}", event.uuid)) {
+        if let Ok(url) = Url::parse(&format!("http://192.168.86.166:8080/globe1/{}", event.uuid)) {
             let req = reqwest.0.delete(url).build().unwrap();
     
             let req = ReqwestRequest::new(req);

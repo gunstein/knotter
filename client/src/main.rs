@@ -58,7 +58,8 @@ pub enum AppState {
     EditUpsert,
     EditUpsertSetSpeed,
     EditDelete,
-    View,
+    Orbiting,
+    Zooming,
 }
 
 #[derive(Component)]
