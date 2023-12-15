@@ -71,10 +71,14 @@ fn state_handler_orbit_and_zoom(
 ) {
     let touches: Vec<&touch::Touch> = touches_res.iter().collect();
     if touches.len() == 2 {
-        next_state.set(AppState::Zooming);
+        if *current_state != AppState::Zooming {
+            next_state.set(AppState::Zooming);
+        }
     }
     else if touches.len() == 1 {
+        bevy::log::info!("touch 1");
         if *current_state != AppState::Orbiting {
+            bevy::log::info!("NOT orbiting");
             if let Some(cursor_position) = touches.iter().next().map(|touch| touch.position()){
                 for (camera, camera_transform) in &cameras {
                     if let Some(ray) = camera.viewport_to_world(camera_transform, cursor_position) {
@@ -98,9 +102,10 @@ fn state_handler_orbit_and_zoom(
                             filter,
                         ){
                             //Do nothing. let state be what it was
-
+                            bevy::log::info!("Hit globe");
                         }
                         else{
+                            bevy::log::info!("Next State orbiting");
                             //no hit
                             next_state.set(AppState::Orbiting);
                         }
@@ -110,7 +115,10 @@ fn state_handler_orbit_and_zoom(
         }
     }
     else{
-        next_state.set(AppState::EditUpsert); //or EditDelete if relevant
+        if *current_state != AppState::EditUpsert {
+            bevy::log::info!("Next State EditUpsert");
+            next_state.set(AppState::EditUpsert); //or EditDelete if relevant
+        }
     }
 }
 
@@ -173,13 +181,11 @@ fn camera_orbit_zooming(
     touches_res: Res<Touches>,
     mut query: Query<(&Camera, &mut Transform)>,
     config: Res<TouchCameraConfig>,
-    mut next_state: ResMut<NextState<AppState>>
 ) {
-    for (_camera, mut transform) in query.iter_mut() { 
-        let touches: Vec<&touch::Touch> = touches_res.iter().collect();
-
-        // Touch control logic
-        if touches.len() == 2 {
+    let touches: Vec<&touch::Touch> = touches_res.iter().collect();
+    // Touch control logic
+    if touches.len() == 2 {
+        for (_camera, mut transform) in query.iter_mut() { 
             // Implement pinch to zoom
             let distance_current = touches[0].position() - touches[1].position();
             let distance_prev = touches[0].previous_position() - touches[1].previous_position();
@@ -196,10 +202,11 @@ fn camera_orbit_zooming(
             } else if distance > config.max_zoom {
                 transform.translation = transform.translation.normalize() * config.max_zoom;
             }
-            next_state.set(AppState::Zooming);
+            //next_state.set(AppState::Zooming);
         }
     }
 }
+
 
 
 fn camera_orbit_orbiting(
@@ -207,13 +214,13 @@ fn camera_orbit_orbiting(
     touches_res: Res<Touches>,
     mut query: Query<(&Camera, &mut Transform)>,
     config: Res<TouchCameraConfig>,
-    mut next_state: ResMut<NextState<AppState>>
 ) {
-    for (_camera, mut transform) in query.iter_mut() { 
+    bevy::log::info!("ORBITING");
+    let touches: Vec<&touch::Touch> = touches_res.iter().collect();
 
-        let touches: Vec<&touch::Touch> = touches_res.iter().collect();
-
-        if touches.len() == 1 {
+    if touches.len() == 1 {
+        for (_camera, mut transform) in query.iter_mut() { 
+            bevy::log::info!("ORBITING");
             let delta = touches[0].delta();
 
             // Calculate the proposed pitch change (rotation around the x-axis)
@@ -246,11 +253,12 @@ fn camera_orbit_orbiting(
             // Ensure the camera is always oriented towards the center of the globe
             transform.look_at(Vec3::ZERO, Vec3::Y);       
         
-            bevy::log::info!("Next State orbiting");
-            next_state.set(AppState::Orbiting);
+            //bevy::log::info!("Next State orbiting");
+            //next_state.set(AppState::Orbiting);
         }
     }
 }
+
 
 
 /*

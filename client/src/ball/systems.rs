@@ -158,13 +158,14 @@ pub fn edit_upsert_ball_on_globe(
                                 true,
                                 None
                             );
+                            next_state.set(AppState::EditUpsertSetSpeed);
                         }
                     }
                 }            
             }    
         }
 
-        next_state.set(AppState::EditUpsertSetSpeed);
+        //next_state.set(AppState::EditUpsertSetSpeed);
     }
 }
 
@@ -471,6 +472,7 @@ pub fn handle_delete_state(
     if keyboard_input.pressed(KeyCode::Delete) || selected_delete.0 == true {
         if *current_state == AppState::EditUpsert {
             next_state.set(AppState::EditDelete);
+            //next_state.set(AppState::Orbiting);
         }
     } else {
         if *current_state == AppState::EditDelete {
