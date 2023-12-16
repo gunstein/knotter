@@ -1,4 +1,4 @@
-use bevy::{prelude::*, window::PresentMode};
+use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 //use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
@@ -7,7 +7,7 @@ use ball::BallPlugin;
 use orbit_camera_controller::OrbitCameraControllerPlugin;
 use query_server::QueryServerPlugin;
 use ui::GridMenuPlugin;
-//use bevy_wasm_window_resize::WindowResizePlugin;
+use std::path::Path;
 
 use std::f32::consts::PI;
 
@@ -17,13 +17,42 @@ mod query_server;
 mod orbit_camera_controller;
 mod ui;
 
+//use wasm_bindgen::prelude::*;
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+extern "C" {
+    fn get_url_path() -> String;
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn get_url_path() -> String {
+    "gvtest123".to_string()
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+extern "C" {
+    fn get_api_url() -> String;
+}
+#[cfg(not(target_arch = "wasm32"))]
+fn get_api_url() -> String {
+    "http://192.168.86.166:8080".to_string()
+}
+
 fn main() {
+    //let path = get_url_path();
+    //println!("URL Path: {}", path);
+
+    //let api_url = get_api_url();
+    //println!("API URL: {}", api_url);
     App::new()
         .insert_resource(ClearColor(Color::rgb(
             0xAD as f32 / 255.0,
             0xD8 as f32 / 255.0,
             0xE6 as f32 / 255.0,
         )))
+        .insert_resource(GlobeName(first_path_element(&get_url_path()).unwrap()))
+        .insert_resource(ApiURL(get_api_url()))
         .add_state::<AppState>()
         //.insert_resource(WinitSettings::desktop_app())
         .add_plugins(
@@ -43,14 +72,26 @@ fn main() {
         .add_plugins(OrbitCameraControllerPlugin)
         .add_plugins(QueryServerPlugin)
         .add_plugins(GridMenuPlugin)
-        //.add_plugins(WindowResizePlugin)
-        //.add_plugins(RapierDebugRenderPlugin::default())
         .add_systems(Startup, setup_graphics)
         .add_systems(Startup, setup_physics)
         .add_systems(Update, update_directional_light_direction)
         .run();
 }
 
+fn first_path_element(path_str: &str) -> Option<String> {
+    Path::new(path_str)
+        .components()
+        .find_map(|component| match component {
+            std::path::Component::Normal(c) => c.to_str().map(String::from),
+            _ => None,
+        })
+}
+
+#[derive(Resource)]
+pub struct GlobeName(pub String);
+
+#[derive(Resource)]
+pub struct ApiURL(pub String);
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum AppState {

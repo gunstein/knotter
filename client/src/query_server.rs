@@ -2,6 +2,7 @@ use bevy::{prelude::*, utils::Uuid};
 use bevy_mod_reqwest::{*, reqwest::Url};
 use shared::domain::dtos::ball_dto::BallDto;
 use shared::domain::dtos::get_ball_transactions_by_globeid_response_dto::GetBallTransactionsByGlobeIdResponseDto;
+use url::ParseError;
 pub struct QueryServerPlugin;
 
 impl Plugin for QueryServerPlugin {
@@ -56,13 +57,24 @@ pub struct ReceiveBallTransactionsEvent {
     pub ball_transactions: GetBallTransactionsByGlobeIdResponseDto,
 }
 
+fn build_url(base_url: &str, path: &str) -> Result<Url, ParseError> {
+    let mut url = Url::parse(base_url)?;
+    url.set_path(path);
+    Ok(url)
+}
 
-fn insert_ball_event_listener(mut commands: Commands, mut events: EventReader<SendInsertBallEvent>, reqwest: Res<ReqwestClient>) {
+fn insert_ball_event_listener(mut commands: Commands, 
+    mut events: EventReader<SendInsertBallEvent>, 
+    reqwest: Res<ReqwestClient>,
+    globe_name: Res<crate::GlobeName>,
+    api_url: Res<crate::ApiURL>,
+) {
     for event in events.read() {
         //if let Ok(url) = Url::parse("http://127.0.0.1:8080/globe1") {
-        if let Ok(url) = Url::parse("http://192.168.86.166:8080/globe1") {
+        let url_string = build_url(api_url.0.as_str(), globe_name.0.as_str()).unwrap().to_string();
+        if let Ok(url) = Url::parse(url_string.as_str()) {
             let body = serde_json::to_string(&event.ball).unwrap();
-            bevy::log::info!("insert body: {body}");
+            //bevy::log::info!("insert body: {body}");
 
             //let req = reqwest.0.post(url).json(&body).build().unwrap();
             let req = reqwest.0.post(url)
@@ -82,7 +94,7 @@ fn handle_insert_ball_responses(
     for (e, res) in results.iter() {
         match res.as_str() {
             Some(string) => {
-                bevy::log::info!("handle_insert_ball_responses: {string}");
+                //bevy::log::info!("handle_insert_ball_responses: {string}");
             }
             None => {
                 bevy::log::error!("handle_insert_ball_responses: Received None instead of a string.");
@@ -94,11 +106,16 @@ fn handle_insert_ball_responses(
     }
 }
 
-fn delete_ball_event_listener(mut commands: Commands, mut events: EventReader<SendDeleteBallEvent>, reqwest: Res<ReqwestClient>) {
+fn delete_ball_event_listener(mut commands: Commands, mut events: EventReader<SendDeleteBallEvent>, 
+    reqwest: Res<ReqwestClient>,
+    globe_name: Res<crate::GlobeName>,
+    api_url: Res<crate::ApiURL>,    
+) {
     for event in events.read() {
 
         //if let Ok(url) = Url::parse(&format!("http://127.0.0.1:8080/globe1/{}", event.uuid)) {
-        if let Ok(url) = Url::parse(&format!("http://192.168.86.166:8080/globe1/{}", event.uuid)) {
+        let url_string = build_url(api_url.0.as_str(), globe_name.0.as_str()).unwrap().to_string();
+        if let Ok(url) = Url::parse(&format!("{}/{}", url_string, event.uuid)) {
             let req = reqwest.0.delete(url).build().unwrap();
     
             let req = ReqwestRequest::new(req);
@@ -114,7 +131,7 @@ fn handle_delete_ball_responses(
     for (e, res) in results.iter() {
         match res.as_str() {
             Some(string) => {
-                bevy::log::info!("handle_delete_ball_responses: {string}");
+                //bevy::log::info!("handle_delete_ball_responses: {string}");
             }
             None => {
                 bevy::log::error!("handle_delete_ball_responses: Received None instead of a string.");
@@ -126,13 +143,17 @@ fn handle_delete_ball_responses(
     }
 }
 
-fn send_transactions_requests(mut commands: Commands, time: Res<Time>, mut timer: ResMut<ReqTimer>, last_trans: Res<LastReceivedTransaction>) {
+fn send_transactions_requests(mut commands: Commands, time: Res<Time>, mut timer: ResMut<ReqTimer>, 
+    last_trans: Res<LastReceivedTransaction>,
+    globe_name: Res<crate::GlobeName>,
+    api_url: Res<crate::ApiURL>,) {
     timer.0.tick(time.delta());
 
     if timer.0.just_finished() {
         //if let Ok(url) = Url::parse(&format!("http://127.0.0.1:8080/globe1/{}", last_trans.0)) {
-        if let Ok(url) = Url::parse(&format!("http://192.168.86.166:8080/globe1/{}", last_trans.0)) {
-            bevy::log::info!("get transactions url: {url}");
+        let url_string = build_url(api_url.0.as_str(), globe_name.0.as_str()).unwrap().to_string();
+        if let Ok(url) = Url::parse(&format!("{}/{}", url_string, last_trans.0))  {
+            //bevy::log::info!("get transactions url: {url}");
             let req = reqwest::Request::new(reqwest::Method::GET, url);
             let req = ReqwestRequest::new(req);
             commands.spawn(req).insert(TransactionsQuery);
@@ -149,20 +170,20 @@ fn handle_transactions_responses(
     for (e, res) in results.iter() {
         match res.as_str() {
             Some(string) => {
-                bevy::log::info!("handle_transactions_responses: {string}");
+                //bevy::log::info!("handle_transactions_responses: {string}");
 
                 // Deserialize to GetBallTransactionsByGlobeIdResponseDto
                 match serde_json::from_str::<GetBallTransactionsByGlobeIdResponseDto>(&string) {
                     Ok(deserialized) => {
                         // Successfully deserialized, use `deserialized` here
-                        bevy::log::info!("Deserialized response: {:?}", deserialized);
+                        //bevy::log::info!("Deserialized response: {:?}", deserialized);
                         if deserialized.ball_transactions.len() > 0 {
                             // Get last transactions received from response and update resource LastReceivedTransaction
                             match deserialized.ball_transactions.last() {
                                 Some(last_element) => {
                                     last_received_transaction.0 = last_element.transaction_id.to_string();
                                 }
-                                None => bevy::log::info!("handle_transactions_responses: The vector is empty"),
+                                None => {}//bevy::log::info!("handle_transactions_responses: The vector is empty"),
                             }
 
                             // Make event and send

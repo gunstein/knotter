@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use crate::ball::color_material_map::*;
 
 #[derive(Component)]
 pub struct ColorAndDeleteMenu;

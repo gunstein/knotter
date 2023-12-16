@@ -4,7 +4,6 @@ use bevy::{
     time::Time,
 };
 use crate::AppState;
-use crate::globe;
 use bevy_rapier3d::prelude::*;
 pub struct OrbitCameraControllerPlugin;
 
@@ -12,15 +11,11 @@ impl Plugin for OrbitCameraControllerPlugin {
     fn build(&self, app: &mut App) {
         app
             .insert_resource(TouchCameraConfig::default())
-            //.add_systems(Update, camera_orbit)
-            //.add_systems(Update, camera_orbit.run_if(is_not_in_desired_state))
             .add_systems(Update, camera_orbit_orbiting.run_if(in_state(AppState::Orbiting)))
             .add_systems(Update, camera_orbit_zooming.run_if(in_state(AppState::Zooming)))
             .add_systems(Update, camera_orbit_key.run_if(in_state(AppState::EditUpsert)))
             .add_systems(Update, state_handler_orbit_and_zoom.run_if(in_state(AppState::EditUpsert)
-                .or_else(in_state(AppState::Zooming)).or_else(in_state(AppState::Orbiting))))
-            ;
-            //.add_systems(Update, print_state);
+                .or_else(in_state(AppState::Zooming)).or_else(in_state(AppState::Orbiting))));
     }
 }
 
@@ -51,17 +46,6 @@ impl Default for TouchCameraConfig {
     }
 }
 
-fn is_not_in_desired_state(state: Res<State<AppState>>) -> bool {
-    match state.get() {
-        AppState::EditUpsertSetSpeed => false,
-        _ => true,
-    }
-}
-
-fn print_state(state: Res<State<AppState>>) {
-    bevy::log::info!("Current AppState: {:?}", state.get());
-}
-
 fn state_handler_orbit_and_zoom(
     touches_res: Res<Touches>,
     current_state: Res<State<AppState>>,
@@ -76,9 +60,9 @@ fn state_handler_orbit_and_zoom(
         }
     }
     else if touches.len() == 1 {
-        bevy::log::info!("touch 1");
+        //bevy::log::info!("touch 1");
         if *current_state != AppState::Orbiting {
-            bevy::log::info!("NOT orbiting");
+            //bevy::log::info!("NOT orbiting");
             if let Some(cursor_position) = touches.iter().next().map(|touch| touch.position()){
                 for (camera, camera_transform) in &cameras {
                     if let Some(ray) = camera.viewport_to_world(camera_transform, cursor_position) {
@@ -102,10 +86,10 @@ fn state_handler_orbit_and_zoom(
                             filter,
                         ){
                             //Do nothing. let state be what it was
-                            bevy::log::info!("Hit globe");
+                            //bevy::log::info!("Hit globe");
                         }
                         else{
-                            bevy::log::info!("Next State orbiting");
+                            //bevy::log::info!("Next State orbiting");
                             //no hit
                             next_state.set(AppState::Orbiting);
                         }
@@ -116,7 +100,7 @@ fn state_handler_orbit_and_zoom(
     }
     else{
         if *current_state != AppState::EditUpsert {
-            bevy::log::info!("Next State EditUpsert");
+            //bevy::log::info!("Next State EditUpsert");
             next_state.set(AppState::EditUpsert); //or EditDelete if relevant
         }
     }
@@ -215,12 +199,12 @@ fn camera_orbit_orbiting(
     mut query: Query<(&Camera, &mut Transform)>,
     config: Res<TouchCameraConfig>,
 ) {
-    bevy::log::info!("ORBITING");
+    //bevy::log::info!("ORBITING");
     let touches: Vec<&touch::Touch> = touches_res.iter().collect();
 
     if touches.len() == 1 {
         for (_camera, mut transform) in query.iter_mut() { 
-            bevy::log::info!("ORBITING");
+            //bevy::log::info!("ORBITING");
             let delta = touches[0].delta();
 
             // Calculate the proposed pitch change (rotation around the x-axis)
@@ -258,74 +242,3 @@ fn camera_orbit_orbiting(
         }
     }
 }
-
-
-
-/*
-fn camera_orbit(
-    time: Res<Time>,
-    keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<(&Camera, &mut Transform)>,
-) {
-    const ORBIT_SPEED: f32 = 2.0;
-    const PITCH_SPEED: f32 = 1.0; // Reduced pitch step for finer control
-    const ZOOM_SPEED: f32 = 0.2;
-    const MAX_PITCH: f32 = 20.0 * std::f32::consts::PI / 180.0; // 20 degrees in radians
-    const MIN_PITCH: f32 = -20.0 * std::f32::consts::PI / 180.0; // -20 degrees in radians
-    const MAX_ZOOM: f32 = 10.0; // maximum distance from the object
-    const MIN_ZOOM: f32 = 2.0;  // minimum distance from the object
-
-
-    for (_tag, mut transform) in query.iter_mut() {
-        // Handle Y-axis rotation
-        if keyboard_input.pressed(KeyCode::A) || keyboard_input.pressed(KeyCode::D) {
-            let rotation_direction = if keyboard_input.pressed(KeyCode::A) { ORBIT_SPEED } else { -ORBIT_SPEED };
-            let rotation = Quat::from_rotation_y(rotation_direction * time.delta_seconds());
-            
-            let translation = transform.translation - Vec3::ZERO;
-            let rotated_translation = rotation.mul_vec3(translation);
-            transform.translation = Vec3::ZERO + rotated_translation;
-            transform.rotate(rotation);
-        }
-
-        // Handle X-axis rotation with clamped pitch
-        if keyboard_input.pressed(KeyCode::W) || keyboard_input.pressed(KeyCode::S) {
-            let current_pitch = transform.forward().y.asin();
-            
-            let pitch_direction = if keyboard_input.pressed(KeyCode::W) { -PITCH_SPEED } else { PITCH_SPEED };
-            let mut proposed_pitch_change = pitch_direction * time.delta_seconds();
-            let proposed_pitch = current_pitch + proposed_pitch_change;
-
-            // Clamp the proposed pitch change
-            if proposed_pitch < MIN_PITCH {
-                proposed_pitch_change += MIN_PITCH - proposed_pitch;
-            } else if proposed_pitch > MAX_PITCH {
-                proposed_pitch_change += MAX_PITCH - proposed_pitch;
-            }
-
-            let axis_of_rotation = transform.right();
-            let rotation = Quat::from_axis_angle(axis_of_rotation, proposed_pitch_change);
-            
-            let translation_to_origin = transform.translation - Vec3::ZERO;
-            let rotated_translation = rotation.mul_vec3(translation_to_origin);
-            transform.translation = Vec3::ZERO + rotated_translation;
-            
-            transform.rotate(rotation);
-        }
-
-        // Zoom in/out with limits
-        if keyboard_input.pressed(KeyCode::E) || keyboard_input.pressed(KeyCode::Q) {
-            let zoom_direction = if keyboard_input.pressed(KeyCode::E) { 1.0 } else { -1.0 };
-            let proposed_translation = transform.translation + transform.forward() * zoom_direction * ZOOM_SPEED;
-
-            // Calculate the distance from the object
-            let distance = proposed_translation.length();
-
-            // Apply zoom only if within limits
-            if distance >= MIN_ZOOM && distance <= MAX_ZOOM {
-                transform.translation = proposed_translation;
-            }
-        }
-    }
-}
-*/

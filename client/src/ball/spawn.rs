@@ -62,7 +62,7 @@ pub fn spawn_moving_ball(commands: &mut Commands,
     impulse: Vec3,
     uuid: Option<Uuid>,
  ) {
-    bevy::log::info!("spawn_moving_ball");
+    //bevy::log::info!("spawn_moving_ball");
     // Decide on the UUID to use: either the one provided, or generate a new one
     let ball_uuid = uuid.unwrap_or_else(Uuid::new_v4);
 

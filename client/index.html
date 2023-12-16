@@ -11,6 +11,20 @@
             }
         </style>
     </head>
+    <script>
+        // Define the API URL
+        const API_URL = "https://example.com/api";
+
+        // Export a function to access the API URL
+        window.get_api_url = function() {
+            return API_URL;
+        };
+    </script>
+    <script type="module">
+        window.get_url_path = function() {
+            return window.location.pathname;
+        };
+    </script>
     <script type="module">
         import init from "./knotter.js";
         init();
