@@ -9,6 +9,13 @@ use query_server::QueryServerPlugin;
 use ui::GridMenuPlugin;
 use std::path::Path;
 
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::wasm_bindgen;
+#[cfg(target_arch = "wasm32")]
+use web_sys::window;
+#[cfg(target_arch = "wasm32")]
+use web_sys::console;
+
 use std::f32::consts::PI;
 
 mod globe;
@@ -17,41 +24,75 @@ mod query_server;
 mod orbit_camera_controller;
 mod ui;
 
-//use wasm_bindgen::prelude::*;
+
 #[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-extern "C" {
-    fn get_url_path() -> String;
+fn get_query_param(param_name: &str) -> Option<String> {
+    if let Some(window) = window() {
+        if let Ok(query_string) = window.location().search() {
+            query_string
+                .trim_start_matches('?') // Remove the leading '?' from the query string
+                .split('&') // Split the query string into key-value pairs
+                .filter_map(|pair| {
+                    let mut parts = pair.split('=');
+                    if let Some(key) = parts.next() {
+                        if let Some(val) = parts.next() {
+                            if key == param_name {
+                                return Some(val.to_string());
+                            }
+                        }
+                    }
+                    None
+                })
+                .next() // Take the first occurrence
+        } else {
+            None
+        }
+    } else {
+        None
+    }
 }
+
 
 #[cfg(not(target_arch = "wasm32"))]
-fn get_url_path() -> String {
-    "gvtest123".to_string()
+fn get_query_param(param_name: &str) -> Option<String> {
+    Some("gvtest123".to_string())
 }
 
 #[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-extern "C" {
-    fn get_api_url() -> String;
+fn get_api_url() -> String {
+    if let Some(window) = window() {
+        if let Some(my_constant) = window.get("API_URL") {
+            if let Some(string) = my_constant.as_string() {
+                console::log_1(&format!("Constant API_URL: {}", string).into());
+                string
+            } else {
+                println!("Constant API_URL is not a string");
+                "API_URL not a string".to_string()
+            }
+        } else {
+            //println!("Constant API_URL not found");
+            console::log_1(&format!("Constant API_URL not found.").into());
+            "Constant API_URL not found".to_string()
+        }
+    } else {
+        println!("No global window object available");
+        "No global window object available".to_string()
+    }
 }
+
 #[cfg(not(target_arch = "wasm32"))]
 fn get_api_url() -> String {
     "http://192.168.86.166:8080".to_string()
 }
 
 fn main() {
-    //let path = get_url_path();
-    //println!("URL Path: {}", path);
-
-    //let api_url = get_api_url();
-    //println!("API URL: {}", api_url);
     App::new()
         .insert_resource(ClearColor(Color::rgb(
             0xAD as f32 / 255.0,
             0xD8 as f32 / 255.0,
             0xE6 as f32 / 255.0,
         )))
-        .insert_resource(GlobeName(first_path_element(&get_url_path()).unwrap()))
+        .insert_resource(GlobeName(get_query_param("globe").unwrap()))
         .insert_resource(ApiURL(get_api_url()))
         .add_state::<AppState>()
         //.insert_resource(WinitSettings::desktop_app())
@@ -78,14 +119,6 @@ fn main() {
         .run();
 }
 
-fn first_path_element(path_str: &str) -> Option<String> {
-    Path::new(path_str)
-        .components()
-        .find_map(|component| match component {
-            std::path::Component::Normal(c) => c.to_str().map(String::from),
-            _ => None,
-        })
-}
 
 #[derive(Resource)]
 pub struct GlobeName(pub String);

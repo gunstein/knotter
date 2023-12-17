@@ -72,6 +72,7 @@ fn insert_ball_event_listener(mut commands: Commands,
     for event in events.read() {
         //if let Ok(url) = Url::parse("http://127.0.0.1:8080/globe1") {
         let url_string = build_url(api_url.0.as_str(), globe_name.0.as_str()).unwrap().to_string();
+        bevy::log::info!("insert_ball_event_listener url_string: {url_string}");
         if let Ok(url) = Url::parse(url_string.as_str()) {
             let body = serde_json::to_string(&event.ball).unwrap();
             //bevy::log::info!("insert body: {body}");
@@ -152,6 +153,7 @@ fn send_transactions_requests(mut commands: Commands, time: Res<Time>, mut timer
     if timer.0.just_finished() {
         //if let Ok(url) = Url::parse(&format!("http://127.0.0.1:8080/globe1/{}", last_trans.0)) {
         let url_string = build_url(api_url.0.as_str(), globe_name.0.as_str()).unwrap().to_string();
+        bevy::log::info!("send_transactions_requests url_string: {url_string}");
         if let Ok(url) = Url::parse(&format!("{}/{}", url_string, last_trans.0))  {
             //bevy::log::info!("get transactions url: {url}");
             let req = reqwest::Request::new(reqwest::Method::GET, url);
