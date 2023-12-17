@@ -1,0 +1,22 @@
+# Build Stage
+FROM rust:bookworm as builder
+
+WORKDIR /knotter
+
+# Copy the shared library and the knotter_api project
+COPY ./shared ./shared
+COPY ./server/knotter_api ./server/knotter_api
+
+# Set the working directory to the knotter_api project
+WORKDIR /knotter/server/knotter_api
+
+# Build the application
+RUN cargo build --release
+
+# Final Stage
+FROM rust:slim-bookworm
+RUN mkdir /data
+VOLUME /data
+COPY --from=builder /knotter/server/knotter_api/target/release/knotter_api /knotter_api_server
+
+CMD ["/knotter_api_server"]

@@ -15,3 +15,15 @@ basic-http-server -a 0.0.0.0:9090 web_test
 
 
 RUST_LOG=off cargo run --release
+
+Docker build client:
+sudo docker build -t knotter_client .
+docker run -e API_URL='http://localhost:8080' -p 80:80 knotter_client
+
+Stop all containers, Reomove all containers and Remove all docker images:
+docker stop $(docker ps -aq)
+docker rm $(docker ps -aq)
+docker rmi $(docker images -q)
+maybe:
+docker image prune -a --force
+

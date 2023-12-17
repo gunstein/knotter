@@ -4,7 +4,8 @@ use redb::{Database, ReadableTable, TableDefinition};
 use crate::domain::errors::my_error::MyError;
 use uuid::Uuid;
 use crate::domain::models::ball_entity::BallEntity;
-use log::debug;
+use log::{info, debug};
+use std::path::Path;
 
 pub const TABLE: TableDefinition<&str, &str> = TableDefinition::new("knotter_log");
 
@@ -84,19 +85,29 @@ impl KeyValueStore {
     }
 
     pub fn setup_database(test_db: bool) -> Result<Arc<Database>, MyError> {
+        let path = Path::new("/data");
         let db_filename = if test_db {
             "test_knotter_db.redb"
         } else {
             "knotter_db.redb"
         };
     
+        let full_path = if path.exists() {
+            // Join the path with the filename
+            path.join(db_filename)
+        } else {
+            // Use only the filename
+            Path::new(db_filename).to_path_buf()
+        };
+    
+        info!("Full path to db: {}", full_path.to_str().unwrap());
         if test_db {
             // Try to delete the test database file
-            debug!("This is test_db so delete it, {}", db_filename);
+            debug!("This is test_db so delete it, {}", full_path.to_str().unwrap());
             let _ = fs::remove_file(db_filename);
         }
     
-        let db = Database::create(db_filename)
+        let db = Database::create(full_path)
             .map_err(|e| MyError::DatabaseError(e.to_string()))?;
     
         //Ensure table is created
