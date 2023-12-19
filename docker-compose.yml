@@ -25,7 +25,7 @@ services:
     volumes:
       - client-data:/usr/share/nginx/html
     environment:
-      - API_URL=http://reverse-proxy
+      - API_URL=http://192.168.86.166/api/
 
 volumes:
   client-data:

@@ -19,4 +19,6 @@ RUN mkdir /data
 VOLUME /data
 COPY --from=builder /knotter/server/knotter_api/target/release/knotter_api /knotter_api_server
 
+EXPOSE 8080
+
 CMD ["/knotter_api_server"]

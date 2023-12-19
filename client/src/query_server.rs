@@ -58,9 +58,25 @@ pub struct ReceiveBallTransactionsEvent {
 }
 
 fn build_url(base_url: &str, path: &str) -> Result<Url, ParseError> {
-    let mut url = Url::parse(base_url)?;
-    url.set_path(path);
-    Ok(url)
+    //bevy::log::info!("Base URL: {}", base_url);
+
+    let mut base = Url::parse(base_url)?;
+
+    // Ensure that the base URL ends with a '/'
+    let mut base_path = base.path().to_owned();
+    if !base_path.ends_with('/') {
+        base_path.push('/');
+    }
+
+    // Append the path
+    base_path.push_str(path);
+    base.set_path(&base_path);
+
+    let full_url = base;
+
+    //bevy::log::info!("Full URL: {}", full_url);
+
+    Ok(full_url)
 }
 
 fn insert_ball_event_listener(mut commands: Commands, 
@@ -71,6 +87,7 @@ fn insert_ball_event_listener(mut commands: Commands,
 ) {
     for event in events.read() {
         //if let Ok(url) = Url::parse("http://127.0.0.1:8080/globe1") {
+        //bevy::log::info!("Base URL: {}",api_url.0.as_str() );
         let url_string = build_url(api_url.0.as_str(), globe_name.0.as_str()).unwrap().to_string();
         bevy::log::info!("insert_ball_event_listener url_string: {url_string}");
         if let Ok(url) = Url::parse(url_string.as_str()) {

@@ -17,7 +17,11 @@ basic-http-server -a 0.0.0.0:9090 web_test
 RUST_LOG=off cargo run --release
 
 Docker build client:
-sudo docker build -t knotter_client .
+./build_wasm_test.sh
+docker build -t knotter_client .
+docker tag knotter_client gunstein/knotter_client:ver_1
+docker push gunstein/knotter_client:ver_1
+
 docker run -e API_URL='http://localhost:8080' -p 80:80 knotter_client
 
 Stop all containers, Reomove all containers and Remove all docker images:
