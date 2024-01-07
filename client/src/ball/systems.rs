@@ -33,26 +33,6 @@ pub fn init_ball_resources(mut commands: Commands,
     }));
 
     commands.insert_resource(HandleForBallMesh { handle: ball_mesh_handle });     
-
-    //let ball_material_handle = materials.add(Color::BLUE.into());
-
-    //commands.insert_resource(HandleForBallMaterial { handle: ball_material_handle });
-    /*
-    let mut color_map = ColorMaterialMap::new();
-
-    color_map.insert(Color::ORANGE, materials.add(Color::ORANGE.into()));
-    color_map.insert(Color::BISQUE, materials.add(Color::BISQUE.into()));
-    color_map.insert(Color::BLUE, materials.add(Color::BLUE.into()));
-
-    color_map.insert(Color::CYAN, materials.add(Color::CYAN.into()));
-    color_map.insert(Color::ORANGE_RED, materials.add(Color::ORANGE_RED.into()));
-    color_map.insert(Color::DARK_GREEN, materials.add(Color::DARK_GREEN.into()));
-
-    color_map.insert(Color::TEAL, materials.add(Color::TEAL.into()));
-    color_map.insert(Color::ALICE_BLUE, materials.add(Color::ALICE_BLUE.into()));
-
-    commands.insert_resource(color_map);  
-    */ 
 }
 
 pub fn push_ball_against_globe(

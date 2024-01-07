@@ -31,3 +31,9 @@ docker rmi $(docker images -q)
 maybe:
 docker image prune -a --force
 
+For the demo version:
+When starting client in browser remember the globe parameter:
+http://192.168.86.40/?globe=gvtest123
+
+
+

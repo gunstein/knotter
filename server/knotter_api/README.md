@@ -101,3 +101,6 @@ cargo test --lib
 
 Ensure debug! is working
 RUST_LOG=debug cargo test test_deserialization_insertballdto -- --nocapture
+
+stress testing:
+locust -f locustfile2.py

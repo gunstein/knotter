@@ -17,7 +17,7 @@ cargo build --release --target wasm32-unknown-unknown
 wasm-bindgen --out-dir web_test --target web ../target/wasm32-unknown-unknown/release/knotter.wasm
 
 # Optimize the WASM binary using wasm-opt
-wasm-opt -Oz -o web_test/knotter_optimized.wasm web_test/knotter_bg.wasm
+wasm-opt -O4 -o web_test/knotter_optimized.wasm web_test/knotter_bg.wasm
 
 # Optionally, you can replace the original WASM file with the optimized version
 mv web_test/knotter_optimized.wasm web_test/knotter_bg.wasm
