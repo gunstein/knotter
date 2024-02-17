@@ -2,10 +2,10 @@ use bevy::prelude::*;
 use super::spawn::*;
 use bevy::input::touch::{TouchInput, TouchPhase};
 
-pub fn check_cursor_over_ui_system(
+pub fn check_cursor_over_ui(
     mut cursor_moved_events: EventReader<CursorMoved>,
     mut touch_events: EventReader<TouchInput>,
-    mut query: Query<(&mut Visibility, &Node, &GlobalTransform), With<ColorAndDeleteMenu>>,
+    mut query: Query<(&mut Visibility, &Node, &GlobalTransform), With<Menu>>,
 ) {
     // Handle cursor movements
     for event in cursor_moved_events.read() {
@@ -23,7 +23,7 @@ pub fn check_cursor_over_ui_system(
 
 fn update_visibility_based_on_position(
     position: Vec2,
-    query: &mut Query<(&mut Visibility, &Node, &GlobalTransform), With<ColorAndDeleteMenu>>,
+    query: &mut Query<(&mut Visibility, &Node, &GlobalTransform), With<Menu>>,
 ) {
     for (mut visibility, node, global_transform) in query.iter_mut() {
         let node_pos = global_transform.translation().truncate();
@@ -91,29 +91,6 @@ fn select_color_button(
 }
 
 
-
-/* 
-pub fn color_button_selector(
-    mut commands: Commands,
-    interaction_query: Query<(Entity, &ColorButton, &Interaction), (Changed<Interaction>, With<Button>)>,
-    mut selected_query: Query<(Entity, &mut BackgroundColor), (With<SelectedColorButton>, With<ColorButton>)>,
-    mut selected_color: ResMut<SelectedColor>,
-) {
-    //bevy::log::info!("color_button_selector 0");
-    for (entity, color_button, interaction) in interaction_query.iter() {
-        //bevy::log::info!("color_button_selector 1");
-        if *interaction == Interaction::Pressed {
-            if let Ok((previous_entity, mut previous_color)) = selected_query.get_single_mut() {
-                *previous_color = BackgroundColor(color_button.0); // Revert color of previously selected
-                commands.entity(previous_entity).remove::<SelectedColorButton>();
-            }
-            commands.entity(entity).insert(SelectedColorButton);
-            selected_color.0 = color_button.0;
-        }
-    }
-}
-*/
-
 pub fn update_color_button_appearance(
     mut query: Query<(&ColorButton, &mut BackgroundColor, &mut Style, Option<&SelectedColorButton>), With<Button>>,
 ) {
@@ -158,16 +135,6 @@ pub fn delete_button_selector(
     }
 }
 
-/*fn is_touch_over_button(touch: &TouchInput, global_transform: &GlobalTransform, node: &Node) -> bool {
-    let node_pos = global_transform.translation().truncate();
-    let touch_pos_ui = touch.position;
-
-    // Check if the touch is over the button
-    (touch_pos_ui.x > node_pos.x - node.size().x / 2.0) && (touch_pos_ui.x < node_pos.x + node.size().x / 2.0) &&
-    (touch_pos_ui.y > node_pos.y - node.size().y / 2.0) && (touch_pos_ui.y < node_pos.y + node.size().y / 2.0)
-}
-*/
-
 fn toggle_delete_button(
     commands: &mut Commands,
     selected_query: &mut Query<Entity, (With<SelectedDeleteButton>, With<DeleteButton>)>,
@@ -183,29 +150,6 @@ fn toggle_delete_button(
     }
 }
 
-/* 
-pub fn delete_button_selector(
-    mut commands: Commands,
-    interaction_query: Query<(Entity, &Interaction), (Changed<Interaction>, With<DeleteButton>)>,
-    mut selected_query: Query<Entity, (With<SelectedDeleteButton>, With<DeleteButton>)>,
-    mut selected_delete: ResMut<SelectedDelete>,
-) {
-    //bevy::log::info!("color_button_selector 0");
-    for (entity, interaction) in interaction_query.iter() {
-        //bevy::log::info!("color_button_selector 1");
-        if *interaction == Interaction::Pressed {
-            if let Ok(previous_entity) = selected_query.get_single_mut() {
-                commands.entity(previous_entity).remove::<SelectedDeleteButton>();
-                selected_delete.0 = false;
-            }
-            else{
-                commands.entity(entity).insert(SelectedDeleteButton);
-                selected_delete.0 = true;
-            }
-        }
-    }
-}
-*/
 
 pub fn update_delete_button_appearance(
     mut query: Query<(&mut Style, Option<&SelectedDeleteButton>), With<DeleteButton>>,
@@ -217,6 +161,31 @@ pub fn update_delete_button_appearance(
         } else {
             // Revert to normal appearance
             style.margin = UiRect::all(Val::Px(0.0));
+        }
+    }
+}
+
+pub fn create_new_globe_button_selector(
+    interaction_query: Query<(Entity, &Interaction), (Changed<Interaction>, With<CreateNewGlobeButton>)>,
+    touch_input_query: Query<(Entity, &GlobalTransform, &Node), With<CreateNewGlobeButton>>,
+    mut touch_events: EventReader<TouchInput>,
+    mut send_create_new_globe_event: EventWriter<crate::query_server::SendCreateNewGlobeEvent>,
+) {
+    // Handle mouse interaction
+    for (entity, interaction) in interaction_query.iter() {
+        if *interaction == Interaction::Pressed {
+            send_create_new_globe_event.send(crate::query_server::SendCreateNewGlobeEvent);
+        }
+    }
+
+    // Handle touch events
+    for touch in touch_events.read() {
+        if touch.phase == TouchPhase::Started {
+            for (entity, global_transform, node) in touch_input_query.iter() {
+                if is_touch_over_button(touch, global_transform, node) {
+                    send_create_new_globe_event.send(crate::query_server::SendCreateNewGlobeEvent);
+                }
+            }
         }
     }
 }

@@ -18,8 +18,9 @@ impl Plugin for QueryServerPlugin {
         .add_systems(Update, handle_insert_ball_responses)
         .add_systems(Update, handle_delete_ball_responses)
         .add_systems(Update, (insert_ball_event_listener, delete_ball_event_listener))
+        .add_systems(Update, (create_new_globe_event_listener, handle_create_new_globe_responses))
         .insert_resource(ReqTimer(Timer::new(
-            std::time::Duration::from_secs(2),//Check if server has new data every 2 seconds
+            std::time::Duration::from_secs(1),//Check if server has new data every 2 seconds
             TimerMode::Repeating,
         )))
         .insert_resource(LastReceivedTransaction("0".to_string()))
@@ -31,6 +32,12 @@ impl Plugin for QueryServerPlugin {
 pub struct SendInsertBallEvent {
     pub ball:BallDto,
 }
+
+#[derive(Event)]
+pub struct SendCreateNewGlobeEvent;
+
+#[derive(Component)]
+pub struct CreateNewGlobeQuery;
 
 #[derive(Component)]
 pub struct InsertBallQuery;
@@ -55,6 +62,11 @@ pub struct LastReceivedTransaction(pub String);
 #[derive(Event)]
 pub struct ReceiveBallTransactionsEvent {
     pub ball_transactions: GetBallTransactionsByGlobeIdResponseDto,
+}
+
+#[derive(Event)]
+pub struct ReceiveNewGlobeCreatedEvent {
+    pub globe_name: String,
 }
 
 fn build_url(base_url: &str, path: &str) -> Result<Url, ParseError> {
@@ -161,63 +173,102 @@ fn handle_delete_ball_responses(
     }
 }
 
-fn send_transactions_requests(mut commands: Commands, time: Res<Time>, mut timer: ResMut<ReqTimer>, 
+fn send_transactions_request(
+    commands: &mut Commands,
+    api_url: &Res<crate::ApiURL>,
+    globe_name: &Res<crate::GlobeName>,
+    last_trans_id: &str,
+) {
+    let url_string = build_url(api_url.0.as_str(), globe_name.0.as_str())
+        .unwrap()
+        .to_string();
+    let request_url = format!("{}/{}", url_string, last_trans_id);
+    bevy::log::info!("Sending transaction request to URL: {request_url}");
+    
+    if let Ok(url) = Url::parse(&request_url) {
+        let req = reqwest::Request::new(reqwest::Method::GET, url);
+        let req = ReqwestRequest::new(req);
+        commands.spawn(req).insert(TransactionsQuery);
+    } else {
+        bevy::log::error!("Failed to parse URL: {request_url}");
+    }
+}
+
+fn send_transactions_requests(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut timer: ResMut<ReqTimer>,
     last_trans: Res<LastReceivedTransaction>,
     globe_name: Res<crate::GlobeName>,
-    api_url: Res<crate::ApiURL>,) {
+    api_url: Res<crate::ApiURL>,
+) {
     timer.0.tick(time.delta());
-
     if timer.0.just_finished() {
-        //if let Ok(url) = Url::parse(&format!("http://127.0.0.1:8080/globe1/{}", last_trans.0)) {
-        let url_string = build_url(api_url.0.as_str(), globe_name.0.as_str()).unwrap().to_string();
-        bevy::log::info!("send_transactions_requests url_string: {url_string}");
-        if let Ok(url) = Url::parse(&format!("{}/{}", url_string, last_trans.0))  {
-            //bevy::log::info!("get transactions url: {url}");
-            let req = reqwest::Request::new(reqwest::Method::GET, url);
-            let req = ReqwestRequest::new(req);
-            commands.spawn(req).insert(TransactionsQuery);
-        }
+        send_transactions_request(&mut commands, &api_url, &globe_name, &last_trans.0);
     }
 }
 
 fn handle_transactions_responses(
-    mut commands: Commands, 
+    mut commands: Commands,
     results: Query<(Entity, &ReqwestBytesResult), With<TransactionsQuery>>,
     mut last_received_transaction: ResMut<LastReceivedTransaction>,
     mut send_receive_ball_transactions_events: EventWriter<ReceiveBallTransactionsEvent>,
+    api_url: Res<crate::ApiURL>,
+    globe_name: Res<crate::GlobeName>,
 ) {
     for (e, res) in results.iter() {
         match res.as_str() {
             Some(string) => {
-                //bevy::log::info!("handle_transactions_responses: {string}");
-
-                // Deserialize to GetBallTransactionsByGlobeIdResponseDto
                 match serde_json::from_str::<GetBallTransactionsByGlobeIdResponseDto>(&string) {
                     Ok(deserialized) => {
-                        // Successfully deserialized, use `deserialized` here
-                        //bevy::log::info!("Deserialized response: {:?}", deserialized);
-                        if deserialized.ball_transactions.len() > 0 {
-                            // Get last transactions received from response and update resource LastReceivedTransaction
-                            match deserialized.ball_transactions.last() {
-                                Some(last_element) => {
-                                    last_received_transaction.0 = last_element.transaction_id.to_string();
-                                }
-                                None => {}//bevy::log::info!("handle_transactions_responses: The vector is empty"),
-                            }
+                        if !deserialized.ball_transactions.is_empty() {
+                            if let Some(last_element) = deserialized.ball_transactions.last() {
+                                last_received_transaction.0 = last_element.transaction_id.to_string();
+                                send_receive_ball_transactions_events.send(ReceiveBallTransactionsEvent {
+                                    ball_transactions: deserialized,
+                                });
 
-                            // Make event and send
-                            send_receive_ball_transactions_events.send(ReceiveBallTransactionsEvent {
-                                ball_transactions: deserialized,
-                            });
+                                // Send a new request immediately
+                                send_transactions_request(&mut commands, &api_url, &globe_name, &last_received_transaction.0);
+                            }
                         }
                     }
-                    Err(err) => {
-                        bevy::log::error!("Failed to deserialize: {}", err);
-                    }
+                    Err(err) => bevy::log::error!("Failed to deserialize: {}", err),
                 }
             }
+            None => bevy::log::error!("Received None instead of a string."),
+        }
+        commands.entity(e).despawn_recursive();
+    }
+}
+
+fn create_new_globe_event_listener(mut commands: Commands, 
+    mut events: EventReader<SendCreateNewGlobeEvent>, 
+    reqwest: Res<ReqwestClient>,
+    api_url: Res<crate::ApiURL>,
+) {
+    for event in events.read() {
+        bevy::log::info!("create_new_globe_event_listener");
+        if let Ok(url) = Url::parse(api_url.0.as_str()) {
+            let req = reqwest.0.post(url).build().unwrap();
+
+            let req = ReqwestRequest::new(req);
+            commands.spawn(req).insert(CreateNewGlobeQuery);
+        }
+    }
+}
+
+fn handle_create_new_globe_responses(
+    mut commands: Commands, 
+    results: Query<(Entity, &ReqwestBytesResult), With<CreateNewGlobeQuery>>
+) {
+    for (e, res) in results.iter() {
+        match res.as_str() {
+            Some(string) => {
+                bevy::log::info!("handle_create_new_globe_responses: {string}");
+            }
             None => {
-                bevy::log::error!("handle_transactions_responses: Received None instead of a string.");
+                bevy::log::error!("handle_create_new_globe_responses: Received None instead of a string.");
             }
         }
 

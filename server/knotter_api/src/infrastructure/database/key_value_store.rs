@@ -7,7 +7,8 @@ use crate::domain::models::ball_entity::BallEntity;
 use log::{info, debug};
 use std::path::Path;
 
-pub const TABLE: TableDefinition<&str, &str> = TableDefinition::new("knotter_log");
+pub const TABLE_LOG: TableDefinition<&str, &str> = TableDefinition::new("knotter_log");
+pub const TABLE_APPROVED_GLOBE_NAMES: TableDefinition<&str, &str> = TableDefinition::new("knotter_approved_globe_names");
 
 pub struct KeyValueStore {
     db: Arc<Database>,
@@ -22,7 +23,7 @@ impl KeyValueStoreTrait for KeyValueStore {
     fn get_alive_objects_map(&self, globe_id: &str) -> Result<HashMap<Uuid, BallEntity>, MyError> {
         // Read all transactions
         let read_txn = self.db.begin_read()?;
-        let table = read_txn.open_table(TABLE)?;
+        let table = read_txn.open_table(TABLE_LOG)?;
     
         let start = format!("{}--", globe_id);
         let end = format!("{}--{}", globe_id, "\u{10ffff}");
@@ -59,7 +60,7 @@ impl KeyValueStore {
         let (key, _nanoseconds_since_epoch) = Self::generate_key(globe_id);
         let write_txn = self.db.begin_write()?;
         {
-            let mut table = write_txn.open_table(TABLE)?;
+            let mut table = write_txn.open_table(TABLE_LOG)?;
             table.insert(&*key, serialized_data)?;
         }
         write_txn.commit()?;
@@ -71,7 +72,7 @@ impl KeyValueStore {
         let key = self.construct_key(globe_id, timestamp);
         let write_txn = self.db.begin_write()?;
         {
-            let mut table = write_txn.open_table(TABLE)?;
+            let mut table = write_txn.open_table(TABLE_LOG)?;
             table.insert(&*key, serialized_data)?;
         }
         write_txn.commit()?;
@@ -113,7 +114,7 @@ impl KeyValueStore {
         //Ensure table is created
         let txn = db.begin_write().unwrap();
         {
-            let _table = txn.open_table(TABLE).unwrap();
+            let _table = txn.open_table(TABLE_LOG).unwrap();
         }
         txn.commit().unwrap();
 
@@ -134,7 +135,7 @@ impl KeyValueStore {
 
     pub fn get_data(&self, globe_id: &str, transaction_id: &str) -> Result<Vec<(String, String)>, MyError> {
         let read_txn = self.db.begin_read()?;
-        let table = read_txn.open_table(TABLE)?;
+        let table = read_txn.open_table(TABLE_LOG)?;
     
         let mut start = format!("{}--", globe_id);
         if transaction_id != "0" {
