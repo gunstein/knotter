@@ -249,7 +249,10 @@ fn create_new_globe_event_listener(mut commands: Commands,
 ) {
     for event in events.read() {
         bevy::log::info!("create_new_globe_event_listener");
-        if let Ok(url) = Url::parse(api_url.0.as_str()) {
+
+        let url_string = build_url(api_url.0.as_str(), "create_new_globe").unwrap().to_string();
+
+        if let Ok(url) = Url::parse(url_string.as_str()) {
             let req = reqwest.0.post(url).build().unwrap();
 
             let req = ReqwestRequest::new(req);
@@ -260,12 +263,16 @@ fn create_new_globe_event_listener(mut commands: Commands,
 
 fn handle_create_new_globe_responses(
     mut commands: Commands, 
-    results: Query<(Entity, &ReqwestBytesResult), With<CreateNewGlobeQuery>>
+    results: Query<(Entity, &ReqwestBytesResult), With<CreateNewGlobeQuery>>,
+    mut send_receive_new_globe_created_events: EventWriter<ReceiveNewGlobeCreatedEvent>,
 ) {
     for (e, res) in results.iter() {
         match res.as_str() {
-            Some(string) => {
-                bevy::log::info!("handle_create_new_globe_responses: {string}");
+            Some(globe_name_received) => {
+                bevy::log::info!("handle_create_new_globe_responses: {globe_name_received}");
+                send_receive_new_globe_created_events.send(ReceiveNewGlobeCreatedEvent {
+                    globe_name: globe_name_received.to_string(),
+                });
             }
             None => {
                 bevy::log::error!("handle_create_new_globe_responses: Received None instead of a string.");
