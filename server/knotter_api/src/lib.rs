@@ -10,6 +10,7 @@ mod helpers;
 // ... existing module declarations ...
 use actix_cors::Cors;
 use actix_web::{web, App, HttpServer};
+use interface::web::handlers::query::get_new_globe_id;
 use std::env;
 use std::sync::Arc;
 use crate::interface::web::handlers::delete::delete_data;
@@ -38,6 +39,7 @@ pub async fn run_server(is_test_mode: bool) -> std::io::Result<()> {
             .service(delete_data)
             .service(healthcheck)
             .service(get_data_by_globe_id)
+            .service(get_new_globe_id)
     })
     //.bind("127.0.0.1:8080")?
     .bind("0.0.0.0:8080")?

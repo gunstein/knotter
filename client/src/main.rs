@@ -92,7 +92,6 @@ fn main() {
             0xD8 as f32 / 255.0,
             0xE6 as f32 / 255.0,
         )))
-        .insert_resource(GlobeName(get_query_param("globe").unwrap()))
         .insert_resource(ApiURL(get_api_url()))
         .add_state::<AppState>()
         //.insert_resource(WinitSettings::desktop_app())
@@ -119,9 +118,6 @@ fn main() {
         .run();
 }
 
-
-#[derive(Resource)]
-pub struct GlobeName(pub String);
 
 #[derive(Resource)]
 pub struct ApiURL(pub String);

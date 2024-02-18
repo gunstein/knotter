@@ -7,9 +7,11 @@ use crate::helpers::*;
 use actix_web::get;
 use crate::infrastructure::database::key_value_store::KeyValueStore;
 use shared::domain::dtos::ball_transaction_dto::BallTransactionDto;
+use shared::domain::dtos::get_new_globe_id_response_dto::GetNewGlobeIdResponse;
 use crate::domain::models::ball_entity::BallEntity;
 use crate::domain::mapping::ball_mapper::entity_to_dto;
 use log::debug;
+use crate::helpers;
 
 #[get("/{globe_id}/{transaction_id}")]
 async fn get_data_by_globe_id(
@@ -21,7 +23,7 @@ async fn get_data_by_globe_id(
 
     let processed_globe_id = process_globe_id(&globe_id)?;
 
-    let results = key_value_store.get_data(&processed_globe_id, &transaction_id)?;
+    let results = key_value_store.get_log_data(&processed_globe_id, &transaction_id)?;
     //debug!("results: {:?}", results);
 
     let ball_transactions: Vec<_> = results
@@ -47,4 +49,23 @@ async fn get_data_by_globe_id(
         .collect::<Result<Vec<_>, MyError>>()?;  // Handle potential errors during mapping
 
     Ok(HttpResponse::Ok().json(GetBallTransactionsByGlobeIdResponseDto { ball_transactions }))
+}
+
+#[get("/new_globe_id")]
+async fn get_new_globe_id(
+    key_value_store: web::Data<Arc<KeyValueStore>>,
+) -> Result<HttpResponse, MyError> {
+    //Generate new globe_ids until not allready exist
+    let mut new_globe_id = String::new();
+    let mut ok = false;
+    while !ok {
+        let temp_globe_id = helpers::generate_globe_id();
+        let results = key_value_store.get_log_data(&temp_globe_id, "0")?;
+        if results.is_empty() {
+            new_globe_id = temp_globe_id;
+            ok = true;
+        }
+    }
+    
+    Ok(HttpResponse::Ok().json(GetNewGlobeIdResponse { new_globe_id}))
 }

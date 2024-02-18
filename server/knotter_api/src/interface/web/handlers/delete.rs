@@ -24,7 +24,7 @@ async fn delete_data(
     let serialized_data = serde_json::to_string(&delete_ball_entity)?; 
 
     debug!("Before key_value_store.delete. globe_id={}, serialized_data={:?}", globe_id, serialized_data);
-    key_value_store.delete(&globe_id, &serialized_data)?;
+    key_value_store.add_delete_to_log(&globe_id, &serialized_data)?;
 
     Ok(HttpResponse::Ok().body(format!("Successfully deleted: Globe ID: {}, Object_uuid: {}", globe_id, object_uuid)))
 }

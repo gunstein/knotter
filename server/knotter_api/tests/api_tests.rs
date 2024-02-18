@@ -80,12 +80,12 @@ async fn test_set_and_retrieve_data() {
     let client = reqwest::Client::new();
 
     // Create mock Transaction data
-    let globe_id = "a_globe_id".to_string();
+    let globe_id = "dapa22ravo".to_string();
     let json_data = serde_json::json!({
         "is_fixed": true,
         "is_insert": true,
         "uuid": "4d3cbd35-41e8-40be-96d2-ac0c4b9f4f26",
-        "color": "#ff0000",
+        "color": "#ff0000ff",
         "position": {
             "x": -1.05,
             "y": 0.0,
@@ -141,13 +141,13 @@ async fn test_delete_data() {
     let client = reqwest::Client::new();
 
     // Create mock Transaction data
-    let globe_id = "a_globe_id".to_string();
+    let globe_id = "capa12vomu".to_string();
     let uuid = "4d3cbd35-41e8-40be-96d2-ac0c4b9f4f26".to_string();
     let json_data = serde_json::json!({
         "is_fixed": true,
         "is_insert": true,
         "uuid": uuid,
-        "color": "#ff0000",
+        "color": "#ff0000ff",
         "position": {
             "x": -1.05,
             "y": 0.0,
@@ -207,4 +207,28 @@ async fn test_delete_data() {
     let query_response_data: GetBallTransactionsByGlobeIdResponseDto = query_resp.json().await.expect("Failed to deserialize response");
  
     assert_eq!(query_response_data.ball_transactions.len(), 2);    
+}
+
+#[tokio::test]
+async fn test_get_new_globe_id() {
+    // Start the service in a test mode
+    let server_process = Command::new("cargo")
+        .args(&["run", "--", "--test-mode"])
+        .spawn()
+        .expect("Failed to start the server");
+
+    let server = TestServer { process: server_process };
+
+    wait_for_server_ready(&format!("{}/health", BASE_URL), 10).await.expect("Server not ready");
+
+    let client = reqwest::Client::new();
+    let resp = client.get(&format!("{}/new_globe_id", BASE_URL))
+        .send()
+        .await
+        .expect("Failed to send request");
+
+    assert!(resp.status().is_success());
+
+    let new_globe_id_response: serde_json::Value = resp.json().await.expect("Failed to deserialize response");
+    assert!(!new_globe_id_response["new_globe_id"].to_string().is_empty());
 }

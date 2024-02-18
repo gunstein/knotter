@@ -3,6 +3,9 @@ use bevy_mod_reqwest::{*, reqwest::Url};
 use shared::domain::dtos::ball_dto::BallDto;
 use shared::domain::dtos::get_ball_transactions_by_globeid_response_dto::GetBallTransactionsByGlobeIdResponseDto;
 use url::ParseError;
+use crate::ball::components::{MovingBall, StaticBall};
+use crate::globe::GlobeName;
+
 pub struct QueryServerPlugin;
 
 impl Plugin for QueryServerPlugin {
@@ -18,7 +21,7 @@ impl Plugin for QueryServerPlugin {
         .add_systems(Update, handle_insert_ball_responses)
         .add_systems(Update, handle_delete_ball_responses)
         .add_systems(Update, (insert_ball_event_listener, delete_ball_event_listener))
-        .add_systems(Update, (create_new_globe_event_listener, handle_create_new_globe_responses))
+        .add_systems(Update, (create_new_globe_event_listener, handle_get_new_globe_responses))
         .insert_resource(ReqTimer(Timer::new(
             std::time::Duration::from_secs(1),//Check if server has new data every 2 seconds
             TimerMode::Repeating,
@@ -37,7 +40,7 @@ pub struct SendInsertBallEvent {
 pub struct SendCreateNewGlobeEvent;
 
 #[derive(Component)]
-pub struct CreateNewGlobeQuery;
+pub struct GetNewGlobeIdQuery;
 
 #[derive(Component)]
 pub struct InsertBallQuery;
@@ -94,7 +97,7 @@ fn build_url(base_url: &str, path: &str) -> Result<Url, ParseError> {
 fn insert_ball_event_listener(mut commands: Commands, 
     mut events: EventReader<SendInsertBallEvent>, 
     reqwest: Res<ReqwestClient>,
-    globe_name: Res<crate::GlobeName>,
+    globe_name: Res<GlobeName>,
     api_url: Res<crate::ApiURL>,
 ) {
     for event in events.read() {
@@ -138,7 +141,7 @@ fn handle_insert_ball_responses(
 
 fn delete_ball_event_listener(mut commands: Commands, mut events: EventReader<SendDeleteBallEvent>, 
     reqwest: Res<ReqwestClient>,
-    globe_name: Res<crate::GlobeName>,
+    globe_name: Res<GlobeName>,
     api_url: Res<crate::ApiURL>,    
 ) {
     for event in events.read() {
@@ -176,7 +179,7 @@ fn handle_delete_ball_responses(
 fn send_transactions_request(
     commands: &mut Commands,
     api_url: &Res<crate::ApiURL>,
-    globe_name: &Res<crate::GlobeName>,
+    globe_name: &Res<GlobeName>,
     last_trans_id: &str,
 ) {
     let url_string = build_url(api_url.0.as_str(), globe_name.0.as_str())
@@ -199,7 +202,7 @@ fn send_transactions_requests(
     time: Res<Time>,
     mut timer: ResMut<ReqTimer>,
     last_trans: Res<LastReceivedTransaction>,
-    globe_name: Res<crate::GlobeName>,
+    globe_name: Res<GlobeName>,
     api_url: Res<crate::ApiURL>,
 ) {
     timer.0.tick(time.delta());
@@ -214,7 +217,7 @@ fn handle_transactions_responses(
     mut last_received_transaction: ResMut<LastReceivedTransaction>,
     mut send_receive_ball_transactions_events: EventWriter<ReceiveBallTransactionsEvent>,
     api_url: Res<crate::ApiURL>,
-    globe_name: Res<crate::GlobeName>,
+    globe_name: Res<crate::globe::GlobeName>,
 ) {
     for (e, res) in results.iter() {
         match res.as_str() {
@@ -250,29 +253,33 @@ fn create_new_globe_event_listener(mut commands: Commands,
     for event in events.read() {
         bevy::log::info!("create_new_globe_event_listener");
 
-        let url_string = build_url(api_url.0.as_str(), "create_new_globe").unwrap().to_string();
+        let url_string = build_url(api_url.0.as_str(), "new_globe_id").unwrap().to_string();
 
         if let Ok(url) = Url::parse(url_string.as_str()) {
-            let req = reqwest.0.post(url).build().unwrap();
+            let req = reqwest::Request::new(reqwest::Method::GET, url);
 
             let req = ReqwestRequest::new(req);
-            commands.spawn(req).insert(CreateNewGlobeQuery);
+            commands.spawn(req).insert(GetNewGlobeIdQuery);
         }
     }
 }
 
-fn handle_create_new_globe_responses(
+fn handle_get_new_globe_responses(
     mut commands: Commands, 
-    results: Query<(Entity, &ReqwestBytesResult), With<CreateNewGlobeQuery>>,
-    mut send_receive_new_globe_created_events: EventWriter<ReceiveNewGlobeCreatedEvent>,
+    results: Query<(Entity, &ReqwestBytesResult), With<GetNewGlobeIdQuery>>,
+    query_balls: Query<Entity, (With<StaticBall>, With<MovingBall>)>,
+    mut globe_name: ResMut<GlobeName>,
+    mut last_received_transaction: ResMut<LastReceivedTransaction>,
 ) {
     for (e, res) in results.iter() {
         match res.as_str() {
             Some(globe_name_received) => {
                 bevy::log::info!("handle_create_new_globe_responses: {globe_name_received}");
-                send_receive_new_globe_created_events.send(ReceiveNewGlobeCreatedEvent {
-                    globe_name: globe_name_received.to_string(),
-                });
+                for entity_ball in query_balls.iter() {
+                    commands.entity(entity_ball).despawn();
+                }
+                globe_name.0 = globe_name_received.to_string();
+                last_received_transaction.0 = "0".to_string();
             }
             None => {
                 bevy::log::error!("handle_create_new_globe_responses: Received None instead of a string.");

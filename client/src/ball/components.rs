@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 use uuid::Uuid;
 
-#[derive(Component, Default, Reflect)]
+/*#[derive(Component, Default, Reflect)]
 #[reflect(Component)]
-pub struct Ball; 
+pub struct Ball; */
 
 #[derive(Component)]
 pub struct Speed(pub f32);

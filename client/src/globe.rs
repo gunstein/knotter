@@ -1,8 +1,6 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 
-use crate::query_server::ReceiveNewGlobeCreatedEvent;
-
 pub struct GlobePlugin;
 
 impl Plugin for GlobePlugin {
@@ -11,7 +9,6 @@ impl Plugin for GlobePlugin {
             .insert_resource(GlobeName(crate::get_query_param("globe").unwrap()))
             .insert_resource(GlobePos(Vec3::new(0.0, 0.0, 0.0)))
             .insert_resource(GlobeRadius(1.0))
-            .add_systems(Update, receive_new_globe_created_event_listener)
             .register_type::<Globe>();
     }
 }
@@ -60,12 +57,4 @@ fn spawn_globe(mut commands: Commands,
         Globe
         )
     );
-}
-
-fn receive_new_globe_created_event_listener(mut commands: Commands, mut events: EventReader<ReceiveNewGlobeCreatedEvent>, 
-    mut globe_name: ResMut<GlobeName>,  
-) {
-    for event in events.read() {
-        globe_name.0 = event.globe_name.clone();
-    }
 }
