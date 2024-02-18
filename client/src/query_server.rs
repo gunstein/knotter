@@ -264,6 +264,7 @@ fn create_new_globe_event_listener(mut commands: Commands,
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn handle_get_new_globe_responses(
     mut commands: Commands, 
     results: Query<(Entity, &ReqwestBytesResult), With<GetNewGlobeIdQuery>>,
@@ -291,3 +292,26 @@ fn handle_get_new_globe_responses(
     }
 }
 
+#[cfg(target_arch = "wasm32")]
+fn handle_get_new_globe_responses(
+    mut commands: Commands, 
+    results: Query<(Entity, &ReqwestBytesResult), With<GetNewGlobeIdQuery>>,
+) {
+    let mut new_globe_id = String::new();
+    for (e, res) in results.iter() {
+        match res.as_str() {
+            Some(globe_name_received) => {
+                bevy::log::info!("handle_create_new_globe_responses: {globe_name_received}");
+                new_globe_id = globe_name_received.to_string();
+            }
+            None => {
+                bevy::log::error!("handle_create_new_globe_responses: Received None instead of a string.");
+            }
+        }
+
+        // Done with this entity
+        commands.entity(e).despawn_recursive();
+    }
+
+    crate::navigate_to_globe(new_globe_id);
+}

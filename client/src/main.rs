@@ -85,6 +85,20 @@ fn get_api_url() -> String {
     "http://192.168.86.166:8080".to_string()
 }
 
+#[cfg(target_arch = "wasm32")]
+fn navigate_to_globe(globe_id: &str) {
+    if let Some(window) = window() {
+        let base_url = get_api_url(); // Call get_api_url to get the base URL.
+        let full_url = format!("{}?globe={}", base_url, globe_id); // Append the globe_id as a query parameter.
+
+        let location = window.location();
+        match location.set_href(&full_url) {
+            Ok(_) => {},
+            Err(e) => eprintln!("Error setting the URL: {:?}", e),
+        }
+    }
+}
+
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::rgb(
