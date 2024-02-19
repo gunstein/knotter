@@ -55,7 +55,7 @@ fn get_query_param(param_name: &str) -> Option<String> {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn get_query_param(param_name: &str) -> Option<String> {
-    Some("gvtest123".to_string())
+    Some("guni12guni".to_string())
 }
 
 #[cfg(target_arch = "wasm32")]

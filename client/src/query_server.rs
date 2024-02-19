@@ -5,6 +5,7 @@ use shared::domain::dtos::get_ball_transactions_by_globeid_response_dto::GetBall
 use url::ParseError;
 use crate::ball::components::{MovingBall, StaticBall};
 use crate::globe::GlobeName;
+use shared::domain::dtos::get_new_globe_id_response_dto::GetNewGlobeIdResponse;
 
 pub struct QueryServerPlugin;
 
@@ -15,6 +16,7 @@ impl Plugin for QueryServerPlugin {
         .add_event::<SendInsertBallEvent>()
         .add_event::<SendDeleteBallEvent>()
         .add_event::<ReceiveBallTransactionsEvent>()
+        .add_event::<SendCreateNewGlobeEvent>()
         //.add_plugins(LogPlugin::default())
         .add_systems(Update, send_transactions_requests)
         .add_systems(Update, handle_transactions_responses)
@@ -73,7 +75,8 @@ pub struct ReceiveNewGlobeCreatedEvent {
 }
 
 fn build_url(base_url: &str, path: &str) -> Result<Url, ParseError> {
-    //bevy::log::info!("Base URL: {}", base_url);
+    bevy::log::info!("build_url base_url: {}", base_url);
+    bevy::log::info!("build_url path: {}", path);
 
     let mut base = Url::parse(base_url)?;
 
@@ -247,17 +250,15 @@ fn handle_transactions_responses(
 
 fn create_new_globe_event_listener(mut commands: Commands, 
     mut events: EventReader<SendCreateNewGlobeEvent>, 
-    reqwest: Res<ReqwestClient>,
     api_url: Res<crate::ApiURL>,
 ) {
-    for event in events.read() {
+    for _event in events.read() {
         bevy::log::info!("create_new_globe_event_listener");
 
         let url_string = build_url(api_url.0.as_str(), "new_globe_id").unwrap().to_string();
-
+        bevy::log::info!("url_string: {}", url_string);
         if let Ok(url) = Url::parse(url_string.as_str()) {
             let req = reqwest::Request::new(reqwest::Method::GET, url);
-
             let req = ReqwestRequest::new(req);
             commands.spawn(req).insert(GetNewGlobeIdQuery);
         }
@@ -268,19 +269,28 @@ fn create_new_globe_event_listener(mut commands: Commands,
 fn handle_get_new_globe_responses(
     mut commands: Commands, 
     results: Query<(Entity, &ReqwestBytesResult), With<GetNewGlobeIdQuery>>,
-    query_balls: Query<Entity, (With<StaticBall>, With<MovingBall>)>,
+    query_moving_balls: Query<Entity, With<MovingBall>>,
+    query_static_balls: Query<Entity, With<StaticBall>>,
     mut globe_name: ResMut<GlobeName>,
     mut last_received_transaction: ResMut<LastReceivedTransaction>,
 ) {
     for (e, res) in results.iter() {
         match res.as_str() {
-            Some(globe_name_received) => {
-                bevy::log::info!("handle_create_new_globe_responses: {globe_name_received}");
-                for entity_ball in query_balls.iter() {
-                    commands.entity(entity_ball).despawn();
+            Some(string) => {
+                bevy::log::info!("handle_get_new_globe_responses: {string}");
+                match serde_json::from_str::<GetNewGlobeIdResponse>(&string) {
+                    Ok(deserialized) => {
+                        for entity_moving_ball in query_moving_balls.iter() {
+                            commands.entity(entity_moving_ball).despawn();
+                        }
+                        for entity_static_ball in query_static_balls.iter() {
+                            commands.entity(entity_static_ball).despawn();
+                        }
+                        globe_name.0 = deserialized.new_globe_id;
+                        last_received_transaction.0 = "0".to_string();
+                    }
+                    Err(err) => bevy::log::error!("Failed to deserialize: {}", err),
                 }
-                globe_name.0 = globe_name_received.to_string();
-                last_received_transaction.0 = "0".to_string();
             }
             None => {
                 bevy::log::error!("handle_create_new_globe_responses: Received None instead of a string.");
