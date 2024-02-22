@@ -86,9 +86,25 @@ fn get_api_url() -> String {
 }
 
 #[cfg(target_arch = "wasm32")]
+pub fn get_current_url() -> String {
+    let window = window().expect("should have a Window");
+    let location = window.location();
+    location.href().unwrap() // Directly unwrap the Result
+}
+
+#[cfg(target_arch = "wasm32")]
+fn extract_until_question_mark(s: &str) -> &str {
+    // Split the string at the first occurrence of '?'
+    // and return the part before it.
+    // If '?' is not found, return the entire string.
+    s.split_once('?').map_or(s, |(before, _)| before)
+}
+
+#[cfg(target_arch = "wasm32")]
 fn navigate_to_globe(globe_id: &str) {
     if let Some(window) = window() {
-        let base_url = get_api_url(); // Call get_api_url to get the base URL.
+        let current_url = get_current_url();
+        let base_url = extract_until_question_mark(&current_url);
         let full_url = format!("{}?globe={}", base_url, globe_id); // Append the globe_id as a query parameter.
 
         let location = window.location();

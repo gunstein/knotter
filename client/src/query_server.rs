@@ -310,9 +310,14 @@ fn handle_get_new_globe_responses(
     let mut new_globe_id = String::new();
     for (e, res) in results.iter() {
         match res.as_str() {
-            Some(globe_name_received) => {
-                bevy::log::info!("handle_create_new_globe_responses: {globe_name_received}");
-                new_globe_id = globe_name_received.to_string();
+            Some(string) => {
+                bevy::log::info!("handle_get_new_globe_responses: {string}");
+                match serde_json::from_str::<GetNewGlobeIdResponse>(&string) {
+                    Ok(deserialized) => {
+                        new_globe_id = deserialized.new_globe_id;
+                    }
+                    Err(err) => bevy::log::error!("Failed to deserialize: {}", err),
+                }
             }
             None => {
                 bevy::log::error!("handle_create_new_globe_responses: Received None instead of a string.");
@@ -322,6 +327,7 @@ fn handle_get_new_globe_responses(
         // Done with this entity
         commands.entity(e).despawn_recursive();
     }
-
-    crate::navigate_to_globe(new_globe_id);
+    if !new_globe_id.is_empty(){
+        crate::navigate_to_globe(&new_globe_id);
+    }
 }
