@@ -37,3 +37,4 @@ http://192.168.86.40/?globe=gvtest123
 
 
 
+RUSTFLAGS=--cfg=web_sys_unstable_apis cargo 

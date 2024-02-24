@@ -13,6 +13,7 @@ impl Plugin for GridMenuPlugin {
         app
             .insert_resource(SelectedColor(Color::BLUE))
             .insert_resource(SelectedDelete(false))
+            .insert_resource(SelectedInfo(false))
             .insert_resource(ImageResources::default())
             .add_systems(Startup, spawn_layout)
             .add_systems(Update, check_cursor_over_ui)
@@ -20,6 +21,8 @@ impl Plugin for GridMenuPlugin {
             .add_systems(Update, update_color_button_appearance)
             .add_systems(Update, delete_button_selector)
             .add_systems(Update, update_delete_button_appearance)
-            .add_systems(Update, create_new_globe_button_selector);
+            .add_systems(Update, create_new_globe_button_selector)
+            .add_systems(Update, info_button_selector)
+            .add_systems(Update, update_info_button_appearance);
     }
 }

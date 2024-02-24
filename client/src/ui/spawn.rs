@@ -27,11 +27,30 @@ pub struct CreateNewGlobeButton;
 #[derive(Component)]
 pub struct InfoButton; 
 
+#[derive(Component)]
+pub struct InfoPanel; 
+
+#[derive(Component)]
+pub struct SelectedInfoButton;
+
+#[derive(Resource)]
+pub struct SelectedInfo(pub bool);
+
+#[derive(Component)]
+pub struct QRButton; 
+
+#[derive(Component)]
+pub struct QRButtonImage; 
+
+#[derive(Component)]
+pub struct QRButtonText; 
+
 #[derive(Resource)]
 pub struct ImageResources {
     pub delete_ball: Handle<Image>,
     pub info: Handle<Image>,
     pub plus: Handle<Image>,
+    pub qr: Handle<Image>,
 }
 
 impl Default for ImageResources {
@@ -40,14 +59,17 @@ impl Default for ImageResources {
             delete_ball: Handle::default(),
             info: Handle::default(),
             plus: Handle::default(),
+            qr: Handle::default(),
         }
     }
 }
 
+#[derive(PartialEq, Eq)]
 enum ButtonType {
     DeleteButton,
     CreateButton,
     InfoButton,
+    QRButton,
 }
 
 pub fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>, 
@@ -57,6 +79,8 @@ pub fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>,
     image_resources.delete_ball = asset_server.load("delete_ball.png");
     image_resources.plus = asset_server.load("plus.png");
     image_resources.info = asset_server.load("info.png");
+
+    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
 
     // Extract colors from the ColorMaterialMap keys
     //let colors: Vec<Color> = color_material_map.map.keys().map(|color_key| color_key.0).collect();
@@ -179,16 +203,49 @@ pub fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>,
             });
 
             // Rigth bottom
-            builder.spawn(NodeBundle {
-                style: Style {
-                    // Make this node span two grid column so that it takes up the entire bottom row
-                    grid_row: GridPlacement::span(2),
+            builder
+                .spawn(NodeBundle {
+                    style: Style {
+                        grid_row: GridPlacement::span(2),
+                        // Make the height of the node fill its parent
+                        width: Val::Percent(100.0),
+                        //aspect_ratio: Some(1.0),
+                        display: Display::Grid,
+                        // Add 24px of padding around the grid
+                        //padding: UiRect::all(Val::Px(24.0)),
+                        // Set the grid to have 4 columns all with sizes minmax(0, 1fr)
+                        // This creates 2 exactly evenly sized columns
+                        grid_template_columns: RepeatedGridTrack::flex(1, 1.0),
+                        // Set the grid to have 4 rows all with sizes minmax(0, 1fr)
+                        // This creates 2 exactly evenly sized rows
+                        grid_template_rows: RepeatedGridTrack::flex(2, 1.0),
+                        // Set a 12px gap/gutter between rows and columns
+                        row_gap: Val::Px(12.0),
+                        column_gap: Val::Px(12.0),
+                        ..default()
+                    },
+                    visibility: Visibility::Hidden,
+                    background_color: BackgroundColor(Color::DARK_GRAY),
                     ..default()
-                },
-                background_color: BackgroundColor(Color::WHITE),
-                visibility: Visibility::Hidden,
-                ..default()
-            });
+                })
+                .with_children(|builder| {
+                    // QR Code Image
+                    item_rect_image(builder, image_resources.delete_ball.clone(), ButtonType::QRButton);
+        
+                    // URL Text Box
+                    builder.spawn(TextBundle::from_section(
+                        "Testing",
+                        TextStyle {
+                            font: font.clone(),
+                            font_size: 16.0,
+                            ..default()
+                        },
+                    ))
+                    .insert(QRButtonText);
+                
+                    builder.spawn(NodeBundle::default());
+                })
+                .insert(InfoPanel);
         });
 }
 
@@ -246,7 +303,7 @@ fn item_rect_image(
 
             // Add the image to the button
             button.with_children(|parent| {
-                parent.spawn(ImageBundle {
+                let mut image = parent.spawn(ImageBundle {
                     style: Style {
                         width: Val::Percent(100.0),
                         height: Val::Percent(100.0),
@@ -255,6 +312,9 @@ fn item_rect_image(
                     image: image.into(),
                     ..default()
                 });
+                if button_type == ButtonType::QRButton {
+                    image.insert(QRButtonImage);
+                }
             });
 
             // Insert the specific component based on the button type
@@ -267,6 +327,9 @@ fn item_rect_image(
                 },
                 ButtonType::InfoButton => {
                     button.insert(InfoButton);
+                },
+                ButtonType::QRButton => {
+                    button.insert(QRButton);
                 },
             }
         });

@@ -85,6 +85,12 @@ fn get_api_url() -> String {
     "http://192.168.86.166:8080".to_string()
 }
 
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn get_current_url() -> String {
+    return "https://knotter.vatnar.no".to_string()
+}
+
 #[cfg(target_arch = "wasm32")]
 pub fn get_current_url() -> String {
     let window = window().expect("should have a Window");

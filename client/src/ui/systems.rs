@@ -1,6 +1,11 @@
 use bevy::prelude::*;
+use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use super::spawn::*;
 use bevy::input::touch::{TouchInput, TouchPhase};
+
+use bevy::render::texture::Image;
+use qrcode::QrCode;
+use image::{Luma, Rgb, Rgba};
 
 pub fn check_cursor_over_ui(
     mut cursor_moved_events: EventReader<CursorMoved>,
@@ -186,6 +191,118 @@ pub fn create_new_globe_button_selector(
                     send_create_new_globe_event.send(crate::query_server::SendCreateNewGlobeEvent);
                 }
             }
+        }
+    }
+}
+
+pub fn info_button_selector(
+    mut commands: Commands,
+    interaction_query: Query<(Entity, &Interaction), (Changed<Interaction>, With<InfoButton>)>,
+    touch_input_query: Query<(Entity, &GlobalTransform, &Node), With<InfoButton>>,
+    mut touch_events: EventReader<TouchInput>,
+    mut selected_query: Query<Entity, (With<SelectedInfoButton>, With<InfoButton>)>,
+    mut selected_info: ResMut<SelectedInfo>,
+    mut query_info_panel: Query<(&mut Visibility), With<InfoPanel>>,
+    mut image_resources: ResMut<ImageResources>,
+    mut images: ResMut<Assets<Image>>,
+    mut query_qr_button_image: Query<&mut UiImage, With<QRButtonImage>>,
+    mut query_qr_button_text: Query<&mut Text, With<QRButtonText>>,
+) {
+    // Handle mouse interaction
+    for (entity, interaction) in interaction_query.iter() {
+        if *interaction == Interaction::Pressed {
+            toggle_info_button(&mut commands, &mut selected_query, entity, &mut selected_info, &mut query_info_panel, &mut image_resources, &mut images, &mut query_qr_button_image, &mut query_qr_button_text);
+        }
+    }
+
+    // Handle touch events
+    for touch in touch_events.read() {
+        if touch.phase == TouchPhase::Started {
+            for (entity, global_transform, node) in touch_input_query.iter() {
+                if is_touch_over_button(touch, global_transform, node) {
+                    toggle_info_button(&mut commands, &mut selected_query, entity, &mut selected_info, &mut query_info_panel, &mut image_resources, &mut images, &mut query_qr_button_image, &mut query_qr_button_text);
+                }
+            }
+        }
+    }
+}
+
+fn toggle_info_button(
+    commands: &mut Commands,
+    selected_query: &mut Query<Entity, (With<SelectedInfoButton>, With<InfoButton>)>,
+    entity: Entity,
+    selected_info: &mut ResMut<SelectedInfo>,
+    query_info_panel: &mut Query<(&mut Visibility), With<InfoPanel>>,
+    image_resources: &mut ResMut<ImageResources>,
+    images: &mut ResMut<Assets<Image>>,
+    query_qr_button_image: &mut Query<&mut UiImage, With<QRButtonImage>>,
+    query_qr_button_text: &mut Query<&mut Text, With<QRButtonText>>,
+) {
+    if let Ok(previous_entity) = selected_query.get_single_mut() {
+        commands.entity(previous_entity).remove::<SelectedInfoButton>();
+        selected_info.0 = false;
+        //Hide info panel
+        for (mut visibility) in query_info_panel.iter_mut() {
+            *visibility = Visibility::Hidden;
+        }
+    } else {
+        commands.entity(entity).insert(SelectedInfoButton);
+        selected_info.0 = true;
+        //Show info panel
+        for (mut visibility) in query_info_panel.iter_mut() {
+            *visibility = Visibility::Visible;
+        }
+        //Generate correct QRImage for current url
+        let url = crate::get_current_url();
+        let qr_code = QrCode::new(url.clone()).unwrap();
+
+        let qr_image = qr_code.render::<Rgba<u8>>()
+        .min_dimensions(200, 200)
+        .build();
+    
+        // Convert the QR code image (image crate) to Bevy texture
+        let bevy_image = Image::new_fill(
+            Extent3d {
+                width: qr_image.width(),
+                height: qr_image.height(),
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &qr_image.into_raw(),
+            TextureFormat::Rgba8Unorm, // Assuming conversion to RGBA is done if necessary
+        );
+
+        // Replace the old image with the new one
+        let handle = images.add(bevy_image);
+
+        // Remove the old image from the assets (if it's not the default handle)
+        if image_resources.qr != Handle::<Image>::default() {
+            images.remove(image_resources.qr.clone());
+        }
+
+        // Update the handle to the new image
+        for (mut image) in query_qr_button_image.iter_mut() {
+            image.texture = handle.clone();
+        }
+
+        // Change text
+        for (mut text) in query_qr_button_text.iter_mut() {
+            text.sections[0].value = url.clone();
+        }
+    }
+}
+
+
+pub fn update_info_button_appearance(
+    mut query: Query<(&mut Style, Option<&SelectedInfoButton>), With<InfoButton>>,
+) {
+    for ( mut style, selected) in query.iter_mut() {
+        if let Some(_) = selected {
+            // Change appearance to indicate selection
+            style.margin = UiRect::all(Val::Px(3.0));
+        } else {
+            // Revert to normal appearance
+            style.margin = UiRect::all(Val::Px(0.0));
         }
     }
 }
