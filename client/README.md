@@ -24,7 +24,7 @@ docker push gunstein/knotter_client:ver_1
 
 docker run -e API_URL='http://localhost:8080' -p 80:80 knotter_client
 
-Stop all containers, Reomove all containers and Remove all docker images:
+Stop all containers, Remove all containers and Remove all docker images:
 docker stop $(docker ps -aq)
 docker rm $(docker ps -aq)
 docker rmi $(docker images -q)
