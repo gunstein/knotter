@@ -11,7 +11,7 @@ mod helpers;
 use actix_cors::Cors;
 use actix_web::{web, App, HttpServer};
 use interface::web::handlers::query::get_new_globe_id;
-use std::env;
+
 use std::sync::Arc;
 use crate::interface::web::handlers::delete::delete_data;
 use crate::interface::web::handlers::health_check::healthcheck;

@@ -10,7 +10,7 @@ use shared::domain::dtos::ball_transaction_dto::BallTransactionDto;
 use shared::domain::dtos::get_new_globe_id_response_dto::GetNewGlobeIdResponse;
 use crate::domain::models::ball_entity::BallEntity;
 use crate::domain::mapping::ball_mapper::entity_to_dto;
-use log::debug;
+
 use crate::helpers;
 
 #[get("/{globe_id}/{transaction_id}")]
