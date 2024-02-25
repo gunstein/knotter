@@ -131,7 +131,7 @@ fn handle_insert_ball_responses(
 ) {
     for (e, res) in results.iter() {
         match res.as_str() {
-            Some(string) => {
+            Some(_string) => {
                 //bevy::log::info!("handle_insert_ball_responses: {string}");
             }
             None => {
@@ -168,7 +168,7 @@ fn handle_delete_ball_responses(
 ) {
     for (e, res) in results.iter() {
         match res.as_str() {
-            Some(string) => {
+            Some(_string) => {
                 //bevy::log::info!("handle_delete_ball_responses: {string}");
             }
             None => {

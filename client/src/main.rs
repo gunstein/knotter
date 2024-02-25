@@ -7,7 +7,7 @@ use ball::BallPlugin;
 use orbit_camera_controller::OrbitCameraControllerPlugin;
 use query_server::QueryServerPlugin;
 use ui::GridMenuPlugin;
-use std::path::Path;
+
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -54,7 +54,7 @@ fn get_query_param(param_name: &str) -> Option<String> {
 
 
 #[cfg(not(target_arch = "wasm32"))]
-fn get_query_param(param_name: &str) -> Option<String> {
+fn get_query_param(_param_name: &str) -> Option<String> {
     Some("guni12guni".to_string())
 }
 

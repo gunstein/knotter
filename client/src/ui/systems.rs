@@ -5,7 +5,7 @@ use bevy::input::touch::{TouchInput, TouchPhase};
 
 use bevy::render::texture::Image;
 use qrcode::QrCode;
-use image::{Luma, Rgb, Rgba};
+use image::{Rgba};
 
 pub fn check_cursor_over_ui(
     mut cursor_moved_events: EventReader<CursorMoved>,
@@ -177,7 +177,7 @@ pub fn create_new_globe_button_selector(
     mut send_create_new_globe_event: EventWriter<crate::query_server::SendCreateNewGlobeEvent>,
 ) {
     // Handle mouse interaction
-    for (entity, interaction) in interaction_query.iter() {
+    for (_entity, interaction) in interaction_query.iter() {
         if *interaction == Interaction::Pressed {
             send_create_new_globe_event.send(crate::query_server::SendCreateNewGlobeEvent);
         }
@@ -186,7 +186,7 @@ pub fn create_new_globe_button_selector(
     // Handle touch events
     for touch in touch_events.read() {
         if touch.phase == TouchPhase::Started {
-            for (entity, global_transform, node) in touch_input_query.iter() {
+            for (_entity, global_transform, node) in touch_input_query.iter() {
                 if is_touch_over_button(touch, global_transform, node) {
                     send_create_new_globe_event.send(crate::query_server::SendCreateNewGlobeEvent);
                 }
@@ -202,7 +202,7 @@ pub fn info_button_selector(
     mut touch_events: EventReader<TouchInput>,
     mut selected_query: Query<Entity, (With<SelectedInfoButton>, With<InfoButton>)>,
     mut selected_info: ResMut<SelectedInfo>,
-    mut query_info_panel: Query<(&mut Visibility), With<InfoPanel>>,
+    mut query_info_panel: Query<&mut Visibility, With<InfoPanel>>,
     mut image_resources: ResMut<ImageResources>,
     mut images: ResMut<Assets<Image>>,
     mut query_qr_button_image: Query<&mut UiImage, With<QRButtonImage>>,
@@ -232,7 +232,7 @@ fn toggle_info_button(
     selected_query: &mut Query<Entity, (With<SelectedInfoButton>, With<InfoButton>)>,
     entity: Entity,
     selected_info: &mut ResMut<SelectedInfo>,
-    query_info_panel: &mut Query<(&mut Visibility), With<InfoPanel>>,
+    query_info_panel: &mut Query<&mut Visibility, With<InfoPanel>>,
     image_resources: &mut ResMut<ImageResources>,
     images: &mut ResMut<Assets<Image>>,
     query_qr_button_image: &mut Query<&mut UiImage, With<QRButtonImage>>,
@@ -242,14 +242,14 @@ fn toggle_info_button(
         commands.entity(previous_entity).remove::<SelectedInfoButton>();
         selected_info.0 = false;
         //Hide info panel
-        for (mut visibility) in query_info_panel.iter_mut() {
+        for mut visibility in query_info_panel.iter_mut() {
             *visibility = Visibility::Hidden;
         }
     } else {
         commands.entity(entity).insert(SelectedInfoButton);
         selected_info.0 = true;
         //Show info panel
-        for (mut visibility) in query_info_panel.iter_mut() {
+        for mut visibility in query_info_panel.iter_mut() {
             *visibility = Visibility::Visible;
         }
         //Generate correct QRImage for current url
@@ -281,12 +281,12 @@ fn toggle_info_button(
         }
 
         // Update the handle to the new image
-        for (mut image) in query_qr_button_image.iter_mut() {
+        for mut image in query_qr_button_image.iter_mut() {
             image.texture = handle.clone();
         }
 
         // Change text
-        for (mut text) in query_qr_button_text.iter_mut() {
+        for mut text in query_qr_button_text.iter_mut() {
             text.sections[0].value = url.clone();
         }
     }
