@@ -5,3 +5,7 @@ members = [
     "server/knotter_api",
     "shared"
 ]
+
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"

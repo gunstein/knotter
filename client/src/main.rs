@@ -7,7 +7,7 @@ use ball::BallPlugin;
 use orbit_camera_controller::OrbitCameraControllerPlugin;
 use query_server::QueryServerPlugin;
 use ui::GridMenuPlugin;
-use std::path::Path;
+
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -54,8 +54,8 @@ fn get_query_param(param_name: &str) -> Option<String> {
 
 
 #[cfg(not(target_arch = "wasm32"))]
-fn get_query_param(param_name: &str) -> Option<String> {
-    Some("gvtest123".to_string())
+fn get_query_param(_param_name: &str) -> Option<String> {
+    Some("guni12guni".to_string())
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -85,6 +85,42 @@ fn get_api_url() -> String {
     "http://192.168.86.166:8080".to_string()
 }
 
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn get_current_url() -> String {
+    return "https://knotter.vatnar.no".to_string()
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn get_current_url() -> String {
+    let window = window().expect("should have a Window");
+    let location = window.location();
+    location.href().unwrap() // Directly unwrap the Result
+}
+
+#[cfg(target_arch = "wasm32")]
+fn extract_until_question_mark(s: &str) -> &str {
+    // Split the string at the first occurrence of '?'
+    // and return the part before it.
+    // If '?' is not found, return the entire string.
+    s.split_once('?').map_or(s, |(before, _)| before)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn navigate_to_globe(globe_id: &str) {
+    if let Some(window) = window() {
+        let current_url = get_current_url();
+        let base_url = extract_until_question_mark(&current_url);
+        let full_url = format!("{}?globe={}", base_url, globe_id); // Append the globe_id as a query parameter.
+
+        let location = window.location();
+        match location.set_href(&full_url) {
+            Ok(_) => {},
+            Err(e) => eprintln!("Error setting the URL: {:?}", e),
+        }
+    }
+}
+
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::rgb(
@@ -92,18 +128,16 @@ fn main() {
             0xD8 as f32 / 255.0,
             0xE6 as f32 / 255.0,
         )))
-        .insert_resource(GlobeName(get_query_param("globe").unwrap()))
         .insert_resource(ApiURL(get_api_url()))
-        .add_state::<AppState>()
+        .init_state::<AppState>()
         //.insert_resource(WinitSettings::desktop_app())
         .add_plugins(
             DefaultPlugins.set(
                 WindowPlugin {
                     primary_window: Some(Window {
-                        fit_canvas_to_parent: true,
-                        ..Default::default()
+                        ..default()
                     }),
-                    ..Default::default()
+                    ..default()
                 }
             )
         )
@@ -119,9 +153,6 @@ fn main() {
         .run();
 }
 
-
-#[derive(Resource)]
-pub struct GlobeName(pub String);
 
 #[derive(Resource)]
 pub struct ApiURL(pub String);

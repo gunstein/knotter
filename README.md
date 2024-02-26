@@ -11,7 +11,7 @@ Restart docker compose (builds everything)
 sudo docker compose down
 sudo docker compose up -d
 
-NB! If changes in client. Client volumen must be deleted with this command
+NB! If changes in client. Client volume must be deleted with this command
 docker volume rm knotter_client-data
 
 docker compose up -d --build

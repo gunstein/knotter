@@ -2,6 +2,8 @@ use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use shared::domain::dtos::ball_transaction_dto::BallTransactionDto;
 use uuid::Uuid;
+use crate::query_server::LastReceivedTransaction;
+use crate::query_server::SendTransactionsRequestEvent;
 use crate::ui::spawn::SelectedColor;
 use crate::ui::spawn::SelectedDelete;
 
@@ -27,7 +29,7 @@ pub fn init_ball_resources(mut commands: Commands,
     //mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
 
-    let ball_mesh_handle: Handle<Mesh> = meshes.add(Mesh::from(shape::UVSphere {
+    let ball_mesh_handle: Handle<Mesh> = meshes.add(Mesh::from(Sphere {
         radius: BALL_RADIUS,
         ..default()
     }));
@@ -93,7 +95,7 @@ pub fn edit_upsert_ball_on_globe(
     selected_color_resource: Res<SelectedColor>,
     cameras: Query<(&Camera, &GlobalTransform)>,
     rapier_context: Res<RapierContext>,
-    mouse: Res<Input<MouseButton>>,
+    mouse: Res<ButtonInput<MouseButton>>,
     touches: Res<Touches>,
     windows: Query<&Window>,
     query_globe: Query<Entity, With<globe::Globe>>,
@@ -120,7 +122,7 @@ pub fn edit_upsert_ball_on_globe(
                 if let Some((entity, hit)) = rapier_context.cast_shape(
                     ray.origin,
                     shape_rot,
-                    ray.direction,
+                    *ray.direction,
                     &ball_shape,
                     f32::MAX,
                     true,
@@ -156,7 +158,7 @@ pub fn edit_upsert_set_speed(
     mut commands: Commands,
     cameras: Query<(&Camera, &GlobalTransform)>,
     rapier_context: Res<RapierContext>,
-    mouse: Res<Input<MouseButton>>,
+    mouse: Res<ButtonInput<MouseButton>>,
     touches: Res<Touches>,
     windows: Query<&mut Window>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -216,7 +218,7 @@ pub fn edit_upsert_set_speed(
                 // Then cast the ray. 
                 if let Some((_, toi)) = rapier_context.cast_ray(
                     ray.origin,
-                    ray.direction,
+                    *ray.direction,
                     f32::MAX,
                     true,
                     filter,
@@ -279,7 +281,7 @@ pub fn finalize_upsert_ball_on_globe(
     selected_color_resource: Res<SelectedColor>,
     cameras: Query<(&Camera, &GlobalTransform)>,
     rapier_context: Res<RapierContext>,
-    mouse: Res<Input<MouseButton>>,
+    mouse: Res<ButtonInput<MouseButton>>,
     touches: Res<Touches>,
     windows: Query<&mut Window>,
     mut query_upsert_ball: Query<(Entity, &Transform, &Handle<StandardMaterial>, &BallUuid), With<Upserted>>,
@@ -334,7 +336,7 @@ pub fn finalize_upsert_ball_on_globe(
 
                 if let Some((_, _)) = rapier_context.cast_ray(
                     ray.origin,
-                    ray.direction,
+                    *ray.direction,
                     f32::MAX,
                     true,
                     filter,
@@ -385,7 +387,7 @@ pub fn edit_delete_ball(
     mut commands: Commands,
     cameras: Query<(&Camera, &GlobalTransform)>,
     rapier_context: Res<RapierContext>,
-    mouse: Res<Input<MouseButton>>,
+    mouse: Res<ButtonInput<MouseButton>>,
     touches: Res<Touches>,
     windows: Query<&mut Window>,
     query_globe: Query<Entity, With<globe::Globe>>,
@@ -422,7 +424,7 @@ pub fn edit_delete_ball(
 
             if let Some((entity, _)) = rapier_context.cast_ray(
                 ray.origin,
-                ray.direction,
+                *ray.direction,
                 f32::MAX,
                 true,
                 filter,
@@ -444,7 +446,7 @@ pub fn edit_delete_ball(
 }
 
 pub fn handle_delete_state(
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     current_state: Res<State<AppState>>,
     mut next_state: ResMut<NextState<AppState>>,
     selected_delete: Res<SelectedDelete>
@@ -460,7 +462,6 @@ pub fn handle_delete_state(
         }
     }
 }
-
 fn color_to_hex(color: Color) -> String {
     let rgba = color.as_rgba_u8();
     format!("#{:02X}{:02X}{:02X}{:02X}", rgba[0], rgba[1], rgba[2], rgba[3])
@@ -498,19 +499,28 @@ fn send_insert_ball_event(
 
 pub fn receive_ball_transactions_event_listener(
     mut commands: Commands, 
-    mut events: EventReader<crate::query_server::ReceiveBallTransactionsEvent>, 
+    mut events: EventReader<crate::query_server::ReceivedTransactionsEvent>, 
     ball_mesh_resource: Res<HandleForBallMesh>,
     mut ball_material_resource: ResMut<ColorMaterialMap>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    //selected_color_resource: Res<SelectedColor>,
     query_balls: Query<(Entity, &BallUuid, &Transform)>,
+    mut last_received_transaction: ResMut<LastReceivedTransaction>,
+    mut send_transactions_request_event: EventWriter<SendTransactionsRequestEvent>,
 ) {
     for event in events.read() {
+        if !event.ball_transactions.is_empty() {
+            if let Some(last_element) = event.ball_transactions.last() {
+                last_received_transaction.0 = last_element.transaction_id.to_string();
+                // Send a new request immediately
+                send_transactions_request_event.send(SendTransactionsRequestEvent);
+            }
+        }
+
         let mut balls_to_insert = HashSet::new();
         let mut balls_to_delete = HashSet::new();
 
         // First pass: Determine which balls to insert and delete
-        for ball_transaction in &event.ball_transactions.ball_transactions {
+        for ball_transaction in &event.ball_transactions {
             let uuid = ball_transaction.ball_dto.uuid;
             if ball_transaction.ball_dto.is_insert {
                 balls_to_insert.insert(uuid);
@@ -529,7 +539,7 @@ pub fn receive_ball_transactions_event_listener(
             let ball_already_exists = query_balls.iter().any(|(_, uuid_ball, _)| uuid_ball.0 == uuid);
 
             if !ball_already_exists {
-                if let Some(ball_transaction) = event.ball_transactions.ball_transactions.iter().find(|bt| bt.ball_dto.uuid == uuid) {
+                if let Some(ball_transaction) = event.ball_transactions.iter().find(|bt| bt.ball_dto.uuid == uuid) {
                     let is_moving_ball = !ball_transaction.ball_dto.is_fixed;
 
                     let temp_position = match &ball_transaction.ball_dto.position {

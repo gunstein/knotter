@@ -1,6 +1,6 @@
 use knotter_api::run_server;
 use std::env;
-use log::{debug, error, log_enabled, info, Level};
+use log::{debug};
 use env_logger::Env;
 
 #[actix_web::main]

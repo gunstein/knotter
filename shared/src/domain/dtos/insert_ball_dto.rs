@@ -1,6 +1,6 @@
-use crate::domain::dtos::ball_dto::BallDto;
 use log::debug;
-use env_logger;
+
+use crate::domain::dtos::ball_dto::BallDto;
 
 pub type InsertBallDto = BallDto;
 

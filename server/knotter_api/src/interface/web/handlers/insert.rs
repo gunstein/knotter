@@ -1,5 +1,5 @@
 use actix_web::{web, HttpResponse, Result};
-use actix_web::web::Bytes;
+
 use std::sync::Arc;
 use crate::domain::errors::my_error::MyError;
 use shared::domain::dtos::insert_ball_dto::InsertBallDto;
@@ -57,7 +57,7 @@ pub async fn handle_insert(
     let serialized_data = serde_json::to_string(&ball_entity)?; 
     debug!("handle_insert 5");
     let timestamp = generate_timestamp();
-    key_value_store.insert(&globe_id, &serialized_data, &timestamp)?;
+    key_value_store.add_insert_to_log(&globe_id, &serialized_data, &timestamp)?;
     debug!("handle_insert 6");
     let response = InsertBallResponseDto {
         message: "Successfully inserted.".to_string(),

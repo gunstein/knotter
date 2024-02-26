@@ -1,16 +1,21 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
+use bevy::math::*;
 
 pub struct GlobePlugin;
 
 impl Plugin for GlobePlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, spawn_globe)
+            .insert_resource(GlobeName(crate::get_query_param("globe")))
             .insert_resource(GlobePos(Vec3::new(0.0, 0.0, 0.0)))
             .insert_resource(GlobeRadius(1.0))
             .register_type::<Globe>();
     }
 }
+
+#[derive(Resource)]
+pub struct GlobeName(pub Option<String>);
 
 #[derive(Component, Default, Reflect)]
 #[reflect(Component)]
@@ -30,11 +35,11 @@ fn spawn_globe(mut commands: Commands,
 
     commands.spawn(
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::UVSphere {
+            mesh: meshes.add(Mesh::from(Sphere {
                 radius: globe_radius.0,
                 ..default()
             })),
-            material: materials.add(Color::BLACK.into()),
+            material: materials.add(Color::BLACK),
             ..default()
         }
         )

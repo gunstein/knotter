@@ -6,3 +6,4 @@ pub mod position_dto;
 pub mod impulse_dto;
 pub mod ball_dto;
 pub mod ball_transaction_dto;
+pub mod get_new_globe_id_response_dto;
