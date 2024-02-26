@@ -80,7 +80,7 @@ fn state_handler_orbit_and_zoom(
                         // Then cast the ray. 
                         if let Some((_, _)) = rapier_context.cast_ray(
                             ray.origin,
-                            ray.direction,
+                            *ray.direction,
                             f32::MAX,
                             true,
                             filter,
@@ -106,18 +106,17 @@ fn state_handler_orbit_and_zoom(
     }
 }
 
-
 fn camera_orbit_key(
     time: Res<Time>,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut query: Query<(&Camera, &mut Transform)>,
     config: Res<TouchCameraConfig>,
 ) {
     for (_camera, mut transform) in query.iter_mut() { 
         // Keyboard control
         // Y-axis rotation
-        if keyboard_input.pressed(KeyCode::A) || keyboard_input.pressed(KeyCode::D) {
-            let rotation_direction = if keyboard_input.pressed(KeyCode::A) { config.orbit_speed } else { -config.orbit_speed };
+        if keyboard_input.pressed(KeyCode::KeyA) || keyboard_input.pressed(KeyCode::KeyD) {
+            let rotation_direction = if keyboard_input.pressed(KeyCode::KeyA) { config.orbit_speed } else { -config.orbit_speed };
             let rotation = Quat::from_rotation_y(rotation_direction * time.delta_seconds());
             let translation = transform.translation;
             transform.translation = Vec3::ZERO;
@@ -126,10 +125,10 @@ fn camera_orbit_key(
         }
 
         // Handle X-axis rotation with clamped pitch 
-        if keyboard_input.pressed(KeyCode::W) || keyboard_input.pressed(KeyCode::S) {
+        if keyboard_input.pressed(KeyCode::KeyW) || keyboard_input.pressed(KeyCode::KeyS) {
             let current_pitch = transform.forward().y.asin();
             
-            let pitch_direction = if keyboard_input.pressed(KeyCode::W) { -config.pitch_speed } else { config.pitch_speed };
+            let pitch_direction = if keyboard_input.pressed(KeyCode::KeyW) { -config.pitch_speed } else { config.pitch_speed };
             let mut proposed_pitch_change = pitch_direction * time.delta_seconds();
             let proposed_pitch = current_pitch + proposed_pitch_change;
 
@@ -141,7 +140,7 @@ fn camera_orbit_key(
             }
 
             let axis_of_rotation = transform.right();
-            let rotation = Quat::from_axis_angle(axis_of_rotation, proposed_pitch_change);
+            let rotation = Quat::from_axis_angle(*axis_of_rotation, proposed_pitch_change);
             
             let translation_to_origin = transform.translation - Vec3::ZERO;
             let rotated_translation = rotation.mul_vec3(translation_to_origin);
@@ -151,8 +150,8 @@ fn camera_orbit_key(
         }
 
 
-        if keyboard_input.pressed(KeyCode::E) || keyboard_input.pressed(KeyCode::Q) {
-            let zoom_direction = if keyboard_input.pressed(KeyCode::E) { config.zoom_speed } else { -config.zoom_speed };
+        if keyboard_input.pressed(KeyCode::KeyE) || keyboard_input.pressed(KeyCode::KeyQ) {
+            let zoom_direction = if keyboard_input.pressed(KeyCode::KeyE) { config.zoom_speed } else { -config.zoom_speed };
             let new_zoom = transform.translation.length() + zoom_direction;
             if new_zoom >= config.min_zoom && new_zoom <= config.max_zoom {
                 transform.translation = transform.translation.normalize() * new_zoom;
@@ -221,7 +220,7 @@ fn camera_orbit_orbiting(
             }
         
             // Apply the clamped pitch rotation
-            let rotation_x = Quat::from_axis_angle(axis_of_rotation_x, proposed_pitch_change);
+            let rotation_x = Quat::from_axis_angle(*axis_of_rotation_x, proposed_pitch_change);
             transform.rotate(rotation_x);
         
             // Calculate and apply the rotation around the y-axis (orbit)

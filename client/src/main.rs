@@ -129,16 +129,15 @@ fn main() {
             0xE6 as f32 / 255.0,
         )))
         .insert_resource(ApiURL(get_api_url()))
-        .add_state::<AppState>()
+        .init_state::<AppState>()
         //.insert_resource(WinitSettings::desktop_app())
         .add_plugins(
             DefaultPlugins.set(
                 WindowPlugin {
                     primary_window: Some(Window {
-                        fit_canvas_to_parent: true,
-                        ..Default::default()
+                        ..default()
                     }),
-                    ..Default::default()
+                    ..default()
                 }
             )
         )

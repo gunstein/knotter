@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
+use bevy::math::*;
 
 pub struct GlobePlugin;
 
@@ -34,11 +35,11 @@ fn spawn_globe(mut commands: Commands,
 
     commands.spawn(
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::UVSphere {
+            mesh: meshes.add(Mesh::from(Sphere {
                 radius: globe_radius.0,
                 ..default()
             })),
-            material: materials.add(Color::BLACK.into()),
+            material: materials.add(Color::BLACK),
             ..default()
         }
         )

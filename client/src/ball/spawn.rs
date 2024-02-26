@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::math::*;
 use bevy_rapier3d::prelude::*;
 use uuid::Uuid;
 
@@ -25,7 +26,7 @@ pub fn spawn_static_ball(
     let material_handle = ball_materials_resource
         .map
         .entry(ColorKey(color))
-        .or_insert_with(|| materials.add(color.into()))
+        .or_insert_with(|| materials.add(color))
         .clone();
 
     let mut spawned_entity = commands.spawn(PbrBundle {
@@ -71,7 +72,7 @@ pub fn spawn_moving_ball(commands: &mut Commands,
     let material_handle = ball_materials_resource
         .map
         .entry(ColorKey(color))
-        .or_insert_with(|| materials.add(color.into()))
+        .or_insert_with(|| materials.add(color))
         .clone();
 
     let mut spawned_entity = commands.spawn(PbrBundle {
@@ -127,12 +128,12 @@ pub fn spawn_speed_marker(
     rotation: Quat,
 ) {
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Capsule {
+        mesh: meshes.add(Mesh::from(Capsule3d {
             radius,
-            depth,
+            half_length: depth,
             ..Default::default()
         })),
-        material: materials.add(Color::rgb(0.7, 0.7, 0.7).into()),
+        material: materials.add(Color::rgb(0.7, 0.7, 0.7)),
         transform: Transform {
             translation,
             rotation,

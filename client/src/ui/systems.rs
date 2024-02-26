@@ -2,10 +2,9 @@ use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 use super::spawn::*;
 use bevy::input::touch::{TouchInput, TouchPhase};
-
 use bevy::render::texture::Image;
 use qrcode::QrCode;
-use image::{Rgba};
+use image::Rgba;
 
 pub fn check_cursor_over_ui(
     mut cursor_moved_events: EventReader<CursorMoved>,
@@ -270,6 +269,7 @@ fn toggle_info_button(
             TextureDimension::D2,
             &qr_image.into_raw(),
             TextureFormat::Rgba8Unorm, // Assuming conversion to RGBA is done if necessary
+            default()
         );
 
         // Replace the old image with the new one
