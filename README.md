@@ -1,9 +1,14 @@
 # knotter
+
+<img src="/knotter.webp" >
+
+Collaborative editing of a sphere surface. Client made with Rust, Bevy and Rapier and deployd to web as WASM. Server made with rust and actix web.
+
 Build server:
 docker build -f Dockerfile_server -t knotter_api_server .
-docker tag knotter_api_server gunstein/knotter_api_server:ver_1
+docker tag knotter_api_server gunstein/knotter_api_server:ver_2
 docker login
-docker push gunstein/knotter_api_server:ver_1
+docker push gunstein/knotter_api_server:ver_2
 
 sudo docker run -v knotter_data_volume:/data -p 8080:8080 knotter_api_server
 

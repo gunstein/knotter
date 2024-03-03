@@ -19,8 +19,8 @@ RUST_LOG=off cargo run --release
 Docker build client:
 ./build_wasm_test.sh
 docker build -t knotter_client .
-docker tag knotter_client gunstein/knotter_client:ver_1
-docker push gunstein/knotter_client:ver_1
+docker tag knotter_client gunstein/knotter_client:ver_2
+docker push gunstein/knotter_client:ver_2
 
 docker run -e API_URL='http://localhost:8080' -p 80:80 knotter_client
 

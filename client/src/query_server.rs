@@ -264,11 +264,6 @@ fn handle_received_new_globe_id_response_events(
 #[cfg(target_arch = "wasm32")]
 fn handle_received_new_globe_id_response_events(
     mut events: EventReader<ReceivedGetNewGlobeIdResponseEvent>,
-    query_moving_balls: Query<Entity, With<MovingBall>>,
-    query_static_balls: Query<Entity, With<StaticBall>>,
-    mut globe_name: ResMut<GlobeName>,
-    mut last_received_transaction: ResMut<LastReceivedTransaction>,
-    mut commands: Commands
 ) {
     let mut new_globe_id = String::new();
     for ev in events.read() {

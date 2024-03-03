@@ -12,7 +12,8 @@ cp -r ./assets ./web_test/
 
 # Build the project using cargo for the wasm32 target
 #cargo build --release --target wasm32-unknown-unknown
-RUSTFLAGS=--cfg=web_sys_unstable_apis cargo build --profile wasm-release --target wasm32-unknown-unknown
+cargo build --profile wasm-release --target wasm32-unknown-unknown
+#RUSTFLAGS=--cfg=web_sys_unstable_apis cargo build --profile wasm-release --target wasm32-unknown-unknown
 
 # Use wasm-bindgen to generate the WASM bindings
 wasm-bindgen --out-dir web_test --target web ../target/wasm32-unknown-unknown/wasm-release/knotter.wasm

@@ -27,19 +27,3 @@ impl Hash for ColorKey {
         self.0.a().to_bits().hash(state);
     }
 }
-
-impl ColorMaterialMap {
-    pub fn new() -> Self {
-        ColorMaterialMap {
-            map: HashMap::new(),
-        }
-    }
-
-    pub fn insert(&mut self, color: Color, material_handle: Handle<StandardMaterial>) {
-        self.map.insert(ColorKey(color), material_handle);
-    }
-
-    pub fn get(&self, color: &Color) -> Option<&Handle<StandardMaterial>> {
-        self.map.get(&ColorKey(*color))
-    }
-}
