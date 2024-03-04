@@ -4,6 +4,8 @@
 
 Collaborative editing of a sphere surface. Client made with Rust, Bevy and Rapier and deployd to web as WASM. Server made with rust and actix web.
 
+[Demo](https://gunstein.vatnar.no)
+
 Build server:
 docker build -f Dockerfile_server -t knotter_api_server .
 docker tag knotter_api_server gunstein/knotter_api_server:ver_2
